@@ -1,5 +1,8 @@
 import "server-only";
+import { eq } from "drizzle-orm";
 
+import { db } from "@/db";
+import { learnerProfile, userTrack } from "@/db/schema";
 import { NotImplementedError } from "@/lib/errors";
 
 /**
@@ -14,9 +17,42 @@ import { NotImplementedError } from "@/lib/errors";
  * Server actions and route handlers call these; pages never call AI modules directly.
  */
 
-export async function completeOnboarding(userId: string): Promise<{ assessmentId: string }> {
-  void userId;
-  throw new NotImplementedError("completeOnboarding");
+export type OnboardingInput = {
+  trackIds: string[];
+  goals: string[];
+  customGoal: string | null;
+  currentRole: string | null;
+  yearsExperience: number | null;
+  technologiesUsed: string[];
+  previousLearning: string | null;
+  existingProjects: string | null;
+  weeklyLearningHours: number | null;
+  learningStyle: string | null;
+  mentorTone: "direct" | "balanced" | "supportive";
+};
+
+/**
+ * Saves onboarding context (PRD §8) and the learner's tracks in one transaction. Background is
+ * context for the mentor; it never writes a skill estimate. Safe to call again: it replaces the
+ * previous answers.
+ */
+export async function completeOnboarding(
+  userId: string,
+  input: OnboardingInput,
+): Promise<{ assessmentId: string | null }> {
+  const now = new Date();
+  const { trackIds, ...profile } = input;
+
+  await db.batch([
+    db
+      .insert(learnerProfile)
+      .values({ userId, ...profile, onboardingCompletedAt: now })
+      .onConflictDoUpdate({ target: learnerProfile.userId, set: { ...profile, onboardingCompletedAt: now } }),
+    db.delete(userTrack).where(eq(userTrack.userId, userId)),
+    db.insert(userTrack).values(trackIds.map((trackId) => ({ userId, trackId }))),
+  ]);
+
+  return { assessmentId: null };
 }
 
 export async function submitAssessmentAttempt(attemptId: string): Promise<void> {

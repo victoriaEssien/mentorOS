@@ -1,28 +1,41 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
 import { getLearnerProfile } from "@/server/queries/learner";
+import { getTaxonomy } from "@/server/queries/skills";
 import { requireUser } from "@/server/session";
 
-export const metadata: Metadata = { title: "Onboarding" };
+import { OnboardingWizard } from "./wizard";
+
+export const metadata: Metadata = { title: "Get started" };
+
+// Finishing onboarding writes the diagnostic with the model, which can take a minute.
+export const maxDuration = 120;
 
 export default async function OnboardingPage() {
   const user = await requireUser();
-  const profile = await getLearnerProfile(user.id);
+  const [profile, { tracks }] = await Promise.all([getLearnerProfile(user.id), getTaxonomy()]);
   if (profile?.onboardingCompletedAt) redirect("/today");
 
   return (
-    <PagePlaceholder
-      title="Set up your apprenticeship"
-      prd="PRD §8 Onboarding"
-      purpose="Choose tracks, set goals and share background. Background supplements the diagnostic; it never sets skill levels."
-      todo={[
-        "Step 1: track selection (multi-select, PRD §8.2)",
-        "Step 2: goals plus custom goal (PRD §8.3)",
-        "Step 3: background and weekly time (PRD §8.4)",
-        "On finish: loop.completeOnboarding → diagnostic assessment",
-      ]}
+    <OnboardingWizard
+      tracks={tracks.map((track) => ({ id: track.id, name: track.name, description: track.description }))}
+      initial={
+        profile
+          ? {
+              goals: profile.goals as never,
+              customGoal: profile.customGoal,
+              currentRole: profile.currentRole,
+              yearsExperience: profile.yearsExperience,
+              technologiesUsed: profile.technologiesUsed,
+              previousLearning: profile.previousLearning,
+              existingProjects: profile.existingProjects,
+              weeklyLearningHours: profile.weeklyLearningHours,
+              learningStyle: profile.learningStyle as never,
+              mentorTone: profile.mentorTone,
+            }
+          : {}
+      }
     />
   );
 }
