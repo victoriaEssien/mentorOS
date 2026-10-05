@@ -12,6 +12,9 @@ import {
   skill,
   userSkill,
 } from "@/db/schema";
+import type { SubmissionEvaluationResult } from "@/server/learning/submissions";
+
+import { getTaxonomy } from "./skills";
 
 const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
 
@@ -112,3 +115,67 @@ async function latestOutcomes(missionIds: string[]) {
   for (const row of rows) if (!outcomes.has(row.missionId)) outcomes.set(row.missionId, row.outcome);
   return outcomes;
 }
+
+/**
+ * The latest evaluation of a mission, with each criterion's label and maximum from the mission,
+ * and what it changed in the skill profile. Null when the mission isn't the learner's or hasn't
+ * been evaluated.
+ */
+export async function getMissionEvaluation(userId: string, missionId: string) {
+  if (!z.uuid().safeParse(missionId).success) return null;
+
+  const [row] = await db
+    .select({
+      mission: {
+        id: mission.id,
+        title: mission.title,
+        cadence: mission.cadence,
+        status: mission.status,
+        evaluationCriteria: mission.evaluationCriteria,
+      },
+      evaluation: {
+        id: evaluation.id,
+        outcome: evaluation.outcome,
+        result: evaluation.result,
+        createdAt: evaluation.createdAt,
+      },
+    })
+    .from(mission)
+    .innerJoin(missionSubmission, eq(missionSubmission.missionId, mission.id))
+    .innerJoin(evaluation, eq(evaluation.submissionId, missionSubmission.id))
+    .where(and(eq(mission.id, missionId), eq(mission.userId, userId)))
+    .orderBy(desc(evaluation.createdAt))
+    .limit(1);
+  if (!row) return null;
+
+  const result = row.evaluation.result as SubmissionEvaluationResult;
+  const { skills } = await getTaxonomy();
+  const skillById = new Map(skills.map((s) => [s.id, s]));
+  const labelByKey = new Map(row.mission.evaluationCriteria.map((c) => [c.key, c]));
+
+  return {
+    mission: row.mission,
+    outcome: row.evaluation.outcome,
+    evaluatedAt: row.evaluation.createdAt,
+    score: result.score,
+    criteria: result.criteria.map((c) => ({
+      ...c,
+      label: labelByKey.get(c.key)?.label ?? c.key,
+      maxScore: labelByKey.get(c.key)?.maxScore ?? 10,
+    })),
+    strengths: result.strengths,
+    weaknesses: result.weaknesses,
+    why: result.why,
+    next: result.recommendedNextStep,
+    unseen: result.unseen,
+    links: result.links,
+    changes: result.changes.flatMap((change) => {
+      const skill = skillById.get(change.skillId);
+      return skill
+        ? [{ slug: skill.slug, name: skill.name, before: change.before, after: change.after }]
+        : [];
+    }),
+  };
+}
+
+export type MissionEvaluationView = NonNullable<Awaited<ReturnType<typeof getMissionEvaluation>>>;
