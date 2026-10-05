@@ -12,6 +12,7 @@ export function CellMeter({
   confidence = "high",
   label,
   animate = false,
+  delay = 0,
   className,
 }: {
   /** Ability, 0 to 1. */
@@ -21,6 +22,8 @@ export function CellMeter({
   label: string;
   /** Fill cell by cell on mount. Use for one moment per screen, never on every meter. */
   animate?: boolean;
+  /** Milliseconds before the fill starts, to stagger a list of meters into one reveal. */
+  delay?: number;
   className?: string;
 }) {
   const clamped = Math.min(1, Math.max(0, value));
@@ -43,7 +46,11 @@ export function CellMeter({
           <span
             key={index}
             aria-hidden
-            style={animate && on ? ({ animationDelay: `${index * 55}ms` } as React.CSSProperties) : undefined}
+            style={
+              animate && on
+                ? ({ animationDelay: `${delay + index * 55}ms` } as React.CSSProperties)
+                : undefined
+            }
             className={cn(
               "h-3 origin-bottom rounded-xs",
               on

@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { itemTypeLabel } from "@/lib/assessment-labels";
 import { isAnswered, type AssessmentResponse, type ItemPrompt } from "@/lib/assessment-response";
 import { cn } from "@/lib/utils";
 
@@ -33,19 +34,6 @@ export type PlayerItem = {
   type: string;
   prompt: ItemPrompt;
   timeLimitSeconds: number | null;
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  knowledge: "Quick check",
-  conceptual: "Explain",
-  code: "Read the code",
-  debugging: "Find the bug",
-  scenario: "Scenario",
-  problem_solving: "Problem",
-  practical: "Practical",
-  security: "Security",
-  data: "Data",
-  electronics: "Electronics",
 };
 
 const SAVE_DELAY_MS = 700;
@@ -207,7 +195,7 @@ export function AssessmentPlayer({
           className="animate-in duration-300 fade-in slide-in-from-right-4 motion-reduce:animate-none"
         >
           <div className="flex min-h-7 items-center justify-between gap-3">
-            <Badge>{TYPE_LABEL[item.type] ?? "Question"}</Badge>
+            <Badge>{itemTypeLabel(item.type)}</Badge>
             {item.timeLimitSeconds ? <Countdown seconds={item.timeLimitSeconds} onExpire={timeUp} /> : null}
           </div>
           <h1
