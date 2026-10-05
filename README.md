@@ -32,7 +32,7 @@ Assess → Learn → Practice → Prove → Evaluate → Adapt
 pnpm install
 cp .env.example .env.local        # then fill it in
 pnpm db:push                      # create tables on your Neon database
-pnpm db:seed                      # tracks, starter skill tree, prerequisites
+pnpm db:seed                      # six tracks, their skill trees, prerequisites
 pnpm dev
 ```
 
