@@ -1,7 +1,8 @@
 /**
- * The mentorOS app mark: four ascending bars on a signal-yellow tile, the same glyph the app
- * uses for confidence (signal strength). Pure geometry, so icon routes need no font files.
- * Rendered by next/og (Satori), which only understands inline styles and flexbox.
+ * The mentorOS app mark: the app's 10-cell skill meter folded into a staircase (1 + 2 + 3 + 4
+ * cells) on a signal-yellow tile. The top cell of the last step is hollow: the next one to earn.
+ * Pure geometry, so icon routes need no font files. Rendered by next/og (Satori), which only
+ * understands inline styles and flexbox.
  */
 
 const INK = "#16181c";
@@ -10,17 +11,18 @@ const SIGNAL = "#ffd23f";
 type AppMarkProps = {
   /** Edge length in pixels. */
   size: number;
-  /** Fraction of the tile kept clear around the bars. Maskable icons need at least 0.25. */
+  /** Fraction of the tile kept clear around the staircase. Maskable icons need at least 0.25. */
   inset?: number;
   /** Corner radius as a fraction of the size. 0 for full-bleed (iOS and maskable). */
   corner?: number;
 };
 
-export function AppMark({ size, inset = 0.2, corner = 0.22 }: AppMarkProps) {
+export function AppMark({ size, inset = 0.18, corner = 0.22 }: AppMarkProps) {
   const inner = size * (1 - inset * 2);
-  const barWidth = inner * 0.1875;
-  const gap = (inner - barWidth * 4) / 3;
-  const heights = [0.4, 0.6, 0.8, 1];
+  const cell = inner / 4.66;
+  const gap = cell * 0.22;
+  const radius = Math.max(1, cell * 0.14);
+  const stroke = Math.max(1, Math.round(cell * 0.17));
 
   return (
     <div
@@ -35,16 +37,25 @@ export function AppMark({ size, inset = 0.2, corner = 0.22 }: AppMarkProps) {
       }}
     >
       <div style={{ width: inner, height: inner, display: "flex", alignItems: "flex-end", gap }}>
-        {heights.map((h) => (
-          <div
-            key={h}
-            style={{
-              width: barWidth,
-              height: inner * h,
-              background: INK,
-              borderRadius: Math.max(1, barWidth * 0.18),
-            }}
-          />
+        {[1, 2, 3, 4].map((count) => (
+          <div key={count} style={{ display: "flex", flexDirection: "column", gap, width: cell }}>
+            {Array.from({ length: count }, (_, index) => {
+              const next = count === 4 && index === 0;
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: cell,
+                    height: cell,
+                    boxSizing: "border-box",
+                    borderRadius: radius,
+                    background: next ? "transparent" : INK,
+                    border: next ? `${stroke}px solid ${INK}` : "none",
+                  }}
+                />
+              );
+            })}
+          </div>
         ))}
       </div>
     </div>
