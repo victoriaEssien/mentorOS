@@ -41,6 +41,7 @@
   --color-rule: var(--border);
   --color-rule-strong: var(--rule-strong);
   --color-signal: var(--signal);
+  --color-signal-strong: var(--signal-strong);
   --color-signal-foreground: var(--signal-foreground);
   --color-signal-soft: var(--signal-soft);
   --color-pass: var(--pass);
@@ -117,6 +118,7 @@
   --ring: #16181c;
 
   --signal: #ffd23f;
+  --signal-strong: #f2c11c;
   --signal-foreground: #16181c;
   --signal-soft: #fff4c7;
 
@@ -152,6 +154,7 @@
     --ring: #ffd23f;
 
     --signal: #ffd23f;
+    --signal-strong: #ffdd66;
     --signal-foreground: #16181c;
     --signal-soft: #3a3214;
 
