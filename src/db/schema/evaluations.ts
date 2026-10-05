@@ -26,7 +26,8 @@ export const evaluation = pgTable(
   },
   (t) => [
     index().on(t.userId),
-    index().on(t.submissionId),
+    // One evaluation per submission, for the same reason as per attempt.
+    uniqueIndex().on(t.submissionId),
     // One evaluation per attempt: a second hand-in of the same attempt fails its write
     // transaction instead of doubling the evidence.
     uniqueIndex().on(t.attemptId),

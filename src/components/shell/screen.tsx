@@ -23,12 +23,12 @@ export function Screen({ className, children }: { className?: string; children: 
   );
 }
 
-type ScreenHeaderProps = {
+type ScreenHeaderProps<T extends string> = {
   title: string;
   /** One line under the title: what this screen is for, in the learner's words. */
   subtitle?: React.ReactNode;
   /** Pushed screens show a back link to their parent. */
-  back?: { href: Route; label: string };
+  back?: { href: Route<T>; label: string };
   /** Buttons on the right of the bar (icon buttons, usually). */
   actions?: React.ReactNode;
 };
@@ -37,7 +37,7 @@ type ScreenHeaderProps = {
  * Large title that collapses into a compact bar as the screen scrolls, like a native app.
  * The bar stays pinned under the status bar and carries the back link and actions.
  */
-export function ScreenHeader({ title, subtitle, back, actions }: ScreenHeaderProps) {
+export function ScreenHeader<T extends string>({ title, subtitle, back, actions }: ScreenHeaderProps<T>) {
   return (
     <header className="-mx-4 sm:-mx-6 lg:-mx-10">
       <CompactBar title={title} titleId="screen-title">

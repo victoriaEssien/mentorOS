@@ -3,12 +3,12 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
-import { NotImplementedError } from "@/lib/errors";
 
 import { gradeAttempt } from "./assessment-grading";
 import { ensureDiagnostic } from "./diagnostic";
 import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
+import { submitWork, type WorkInput } from "./submissions";
 
 /**
  * The core loop (PRD §40): Assess → Learn → Practice → Prove → Evaluate → Adapt.
@@ -107,7 +107,16 @@ export async function assignNextMission(
   return assignMission(userId, cadence);
 }
 
-export async function submitMission(submissionId: string): Promise<{ evaluationId: string }> {
-  void submissionId;
-  throw new NotImplementedError("submitMission");
+/**
+ * Hands in work for a mission and evaluates it (PRD §15, §16, §20): scores per criterion, skill
+ * evidence, and path progress when it passes. `pathFinished` means the path ran out of steps and
+ * should be planned again (refreshLearningPath), which the caller runs after responding.
+ */
+export async function submitMission(
+  userId: string,
+  missionId: string,
+  work: WorkInput,
+): Promise<{ evaluationId: string; pathFinished: boolean }> {
+  const { evaluationId, pathFinished } = await submitWork(userId, missionId, work);
+  return { evaluationId, pathFinished };
 }

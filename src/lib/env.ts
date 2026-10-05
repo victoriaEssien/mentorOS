@@ -24,6 +24,9 @@ const serverSchema = z.object({
   AI_MODEL_FAST: z.string().min(1),
   AI_MODEL_SMART: z.string().min(1),
 
+  // Reading GitHub submissions (optional: raises GitHub's limit from 60 reads an hour)
+  GITHUB_TOKEN: z.string().optional(),
+
   // Observability
   SENTRY_DSN: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
