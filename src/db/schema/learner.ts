@@ -1,6 +1,6 @@
 import { integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-import { createdAt, updatedAt } from "./_shared";
+import { createdAt, mentorTone, updatedAt } from "./_shared";
 import { user } from "./auth";
 import { track } from "./skills";
 
@@ -19,6 +19,7 @@ export const learnerProfile = pgTable("learner_profile", {
   previousLearning: text(),
   weeklyLearningHours: integer(),
   learningStyle: text(),
+  mentorTone: mentorTone().default("balanced").notNull(),
   existingProjects: text(),
   onboardingCompletedAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),

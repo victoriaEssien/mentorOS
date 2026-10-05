@@ -72,3 +72,9 @@ export const pathItemStatus = pgEnum("path_item_status", ["upcoming", "current",
 export const evaluationOutcome = pgEnum("evaluation_outcome", ["strong", "pass", "partial", "fail"]);
 
 export const mentorRole = pgEnum("mentor_role", ["user", "assistant", "system"]);
+
+/**
+ * How the mentor delivers feedback (PRODUCT.md: "tone adapts, standards don't"). The learner picks
+ * one; the system also shifts delivery with momentum. Scores and verdicts never change with tone.
+ */
+export const mentorTone = pgEnum("mentor_tone", ["direct", "balanced", "supportive"]);
