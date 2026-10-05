@@ -56,21 +56,37 @@ export const generatedAssessmentSchema = z.object({
   items: z.array(generatedAssessmentItemSchema).min(1),
 });
 
-/** Structured output of the Skill Evaluator: per-response grading. */
-export const responseGradeSchema = z.object({
-  itemId: z.string(),
-  score: z.number().min(0).max(1),
-  skills: z.array(
-    z.object({
-      skill: z.string(),
-      score: z.number().min(0).max(1),
-      confidence: z.number().min(0).max(1),
-      evidence: z.string(),
-    }),
-  ),
-  misconception: z.string().nullable().describe("The misunderstanding the answer reveals, or null"),
+/**
+ * Structured output of the Skill Evaluator for one written answer. Scores are the quality of this
+ * answer against the rubric; how much that says about ability, given the item's difficulty, is
+ * decided in code (src/server/learning/grading.ts).
+ */
+export const answerGradeSchema = z.object({
+  score: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("How much of a strong answer this is: 1 = everything the rubric expects, 0 = wrong or empty"),
+  skills: z
+    .array(
+      z.object({
+        skill: z.string().describe("Skill slug, only from the item's skills"),
+        score: z.number().min(0).max(1).describe("How well the answer shows this skill"),
+        confidence: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("How clearly this one answer shows the learner's level on this skill"),
+        evidence: z.string().describe("One sentence: what in the answer supports this score"),
+      }),
+    )
+    .min(1),
+  misconception: z.string().nullable().describe("The specific misunderstanding the answer reveals, or null"),
+  feedback: z
+    .string()
+    .describe("Two or three sentences to the learner: what the answer got right, what it missed, and why"),
 });
 
 export type GeneratedAssessment = z.infer<typeof generatedAssessmentSchema>;
 export type GeneratedAssessmentItem = z.infer<typeof generatedAssessmentItemSchema>;
-export type ResponseGrade = z.infer<typeof responseGradeSchema>;
+export type AnswerGrade = z.infer<typeof answerGradeSchema>;

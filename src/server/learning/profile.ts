@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 
 import { db } from "@/db";
 import { skillEvidence, userSkill } from "@/db/schema";
@@ -18,21 +19,37 @@ export async function recordEvidence(
   rows: readonly NewEvidenceRow[],
   now: Date = new Date(),
 ): Promise<SkillChange[]> {
-  if (rows.length === 0) return [];
+  const { changes, statements } = await prepareEvidence(userId, rows, now);
+  if (statements.length > 0) await db.batch(statements as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
+  return changes;
+}
+
+/**
+ * recordEvidence's writes, unsent, for a caller that commits them with its own writes in one
+ * transaction (grading writes the evaluation and the evidence together). Reads the existing
+ * evidence now, so send the statements straight away.
+ */
+export async function prepareEvidence(
+  userId: string,
+  rows: readonly NewEvidenceRow[],
+  now: Date = new Date(),
+): Promise<{ changes: SkillChange[]; statements: BatchItem<"pg">[] }> {
+  if (rows.length === 0) return { changes: [], statements: [] };
 
   const skillIds = [...new Set(rows.map((row) => row.skillId))];
   const changes = planSkillChanges(await loadObservations(userId, skillIds), rows, now);
 
-  await db.batch([
-    db.insert(skillEvidence).values(rows.map((row) => ({ ...row, createdAt: now }))),
-    upsertSnapshot(
-      userId,
-      changes.map((change) => ({ skillId: change.skillId, estimate: change.after, lastEvidenceAt: now })),
-      now,
-    ),
-  ]);
-
-  return changes;
+  return {
+    changes,
+    statements: [
+      db.insert(skillEvidence).values(rows.map((row) => ({ ...row, createdAt: now }))),
+      upsertSnapshot(
+        userId,
+        changes.map((change) => ({ skillId: change.skillId, estimate: change.after, lastEvidenceAt: now })),
+        now,
+      ),
+    ],
+  };
 }
 
 /**

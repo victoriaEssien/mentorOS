@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { createdAt, evaluationOutcome, id } from "./_shared";
 import { assessmentAttempt } from "./assessments";
@@ -24,5 +24,11 @@ export const evaluation = pgTable(
     promptVersion: text().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.userId), index().on(t.submissionId), index().on(t.attemptId)],
+  (t) => [
+    index().on(t.userId),
+    index().on(t.submissionId),
+    // One evaluation per attempt: a second hand-in of the same attempt fails its write
+    // transaction instead of doubling the evidence.
+    uniqueIndex().on(t.attemptId),
+  ],
 );

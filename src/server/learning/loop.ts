@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
 import { NotImplementedError } from "@/lib/errors";
 
+import { gradeAttempt } from "./assessment-grading";
 import { ensureDiagnostic } from "./diagnostic";
 
 /**
@@ -65,10 +66,16 @@ export async function completeOnboarding(
   }
 }
 
-export async function submitAssessmentAttempt(userId: string, attemptId: string): Promise<void> {
-  void userId;
-  void attemptId;
-  throw new NotImplementedError("submitAssessmentAttempt");
+/**
+ * Grades a handed-in assessment attempt and records its evidence (PRD §9, §10). Throws
+ * AssessmentClosedError if the attempt was already handed in.
+ */
+export async function submitAssessmentAttempt(
+  userId: string,
+  attemptId: string,
+): Promise<{ evaluationId: string }> {
+  const { evaluationId } = await gradeAttempt(userId, attemptId);
+  return { evaluationId };
 }
 
 export async function refreshLearningPath(
