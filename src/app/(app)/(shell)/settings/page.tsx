@@ -10,6 +10,7 @@ export default function SettingsPage() {
       title="Settings"
       prd="PRD §8.4"
       purpose="Account, tracks, goals and weekly learning time."
+      back={{ href: "/profile", label: "You" }}
     />
   );
 }

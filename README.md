@@ -71,8 +71,9 @@ src/
   app/
     (marketing)/            landing page
     (auth)/                 sign-in, sign-up
-    (app)/                  authenticated: onboarding, dashboard, assessments,
-                            profile, path, missions, mentor, settings
+    (app)/(shell)/          authenticated tabs with the dock: today, path,
+                            missions, mentor, profile ("You"), settings, assessments
+    (app)/(focus)/          full-screen flows: onboarding, the assessment player
     api/auth/[...all]/      Better Auth handler
     api/mentor/             mentor chat endpoint (stub)
   components/

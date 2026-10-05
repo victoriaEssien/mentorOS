@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 
 import { PagePlaceholder } from "@/components/layout/page-placeholder";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Today" };
 
-export default function DashboardPage() {
+export default function TodayPage() {
   return (
     <PagePlaceholder
-      title="Dashboard"
+      title="Today"
       prd="PRD §26 Dashboard, §27 Progress"
-      purpose="Answers three questions at a glance: where am I, what am I doing, what's next."
+      purpose="Where you are, what you're doing, and what comes next."
       todo={[
         "Current focus and current mission",
         "Skill bars with confidence (PRD §28)",

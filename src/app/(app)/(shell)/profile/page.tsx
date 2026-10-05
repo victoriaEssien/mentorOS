@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Skill profile" };
 export default function SkillProfilePage() {
   return (
     <PagePlaceholder
-      title="Skill profile"
+      title="You"
       prd="PRD §10, §11, §28"
       purpose="What the system believes you can do, and the evidence behind every judgement."
       todo={[
