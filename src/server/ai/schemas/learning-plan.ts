@@ -13,7 +13,14 @@ export const learningPlanSchema = z.object({
     )
     .min(1),
   /** When the learner asked to skip ahead and the planner says "not yet" (behaviour 17). */
-  deferred: z.array(z.object({ request: z.string(), reason: z.string(), unlockWhen: z.string() })),
+  deferred: z.array(
+    z.object({
+      request: z.string().describe("What they asked for, in a few words"),
+      skill: z.string().nullable().describe("Skill slug the request is about, or null"),
+      reason: z.string().describe("Why not yet, grounded in evidence"),
+      unlockWhen: z.string().describe("What has to be true before it unlocks, concrete and measurable"),
+    }),
+  ),
 });
 
 export type LearningPlan = z.infer<typeof learningPlanSchema>;

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { assessmentResponseSchema } from "@/lib/assessment-response";
@@ -10,7 +11,7 @@ import {
   openAttempt,
   saveResponse,
 } from "@/server/learning/attempts";
-import { submitAssessmentAttempt } from "@/server/learning/loop";
+import { refreshLearningPath, submitAssessmentAttempt } from "@/server/learning/loop";
 import { requireUser } from "@/server/session";
 
 const uuid = z.uuid();
@@ -55,7 +56,9 @@ export async function finishAssessmentAction(assessmentId: string): Promise<Fini
   try {
     // Ensures an attempt exists even if every answer was "I don't know".
     const attemptId = await openAttempt(user.id, assessmentId);
-    await submitAssessmentAttempt(user.id, attemptId);
+    const { replan } = await submitAssessmentAttempt(user.id, attemptId);
+    // Plan after responding: the learner reads their results while the path is written.
+    if (replan) after(() => planAfterGrading(user.id));
   } catch (error) {
     if (error instanceof AssessmentNotFoundError) return { error: "This assessment no longer exists." };
     // Handed in from another tab or a double tap: the results are already there.
@@ -68,4 +71,13 @@ export async function finishAssessmentAction(assessmentId: string): Promise<Fini
   }
 
   redirect(`/assessments/${assessmentId}/results`);
+}
+
+async function planAfterGrading(userId: string) {
+  try {
+    await refreshLearningPath(userId);
+  } catch (error) {
+    // The path screen offers to plan again when there is no path.
+    console.error(JSON.stringify({ event: "path.plan_failed", userId, reason: String(error) }));
+  }
 }

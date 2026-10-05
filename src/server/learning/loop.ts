@@ -7,6 +7,7 @@ import { NotImplementedError } from "@/lib/errors";
 
 import { gradeAttempt } from "./assessment-grading";
 import { ensureDiagnostic } from "./diagnostic";
+import { hasActivePath, planPath } from "./path";
 
 /**
  * The core loop (PRD §40): Assess → Learn → Practice → Prove → Evaluate → Adapt.
@@ -69,22 +70,29 @@ export async function completeOnboarding(
 /**
  * Grades a handed-in assessment attempt and records its evidence (PRD §9, §10). Throws
  * AssessmentClosedError if the attempt was already handed in.
+ *
+ * `replan` says the evidence should reshape the path: always after the diagnostic (it produces
+ * the first path), and whenever the learner has no path yet. Planning takes a model call, so the
+ * caller runs it after responding (refreshLearningPath).
  */
 export async function submitAssessmentAttempt(
   userId: string,
   attemptId: string,
-): Promise<{ evaluationId: string }> {
-  const { evaluationId } = await gradeAttempt(userId, attemptId);
-  return { evaluationId };
+): Promise<{ evaluationId: string; replan: boolean }> {
+  const { evaluationId, kind } = await gradeAttempt(userId, attemptId);
+  return { evaluationId, replan: kind === "diagnostic" || !(await hasActivePath(userId)) };
 }
 
+/**
+ * Plans a fresh learning path from the current evidence (PRD §12, §17), optionally around
+ * something the learner asked for. The old path is archived. Skills whose prerequisites aren't met
+ * are never scheduled; they come back as "not yet" with what would unlock them.
+ */
 export async function refreshLearningPath(
   userId: string,
-  learnerRequest?: string,
+  learnerRequest: string | null = null,
 ): Promise<{ pathId: string }> {
-  void userId;
-  void learnerRequest;
-  throw new NotImplementedError("refreshLearningPath");
+  return planPath(userId, learnerRequest);
 }
 
 export async function assignNextMission(

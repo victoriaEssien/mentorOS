@@ -51,11 +51,20 @@ export async function gradeAttempt(
   userId: string,
   attemptId: string,
   now: Date = new Date(),
-): Promise<{ evaluationId: string; outcome: Verdict; changes: SkillChange[] }> {
+): Promise<{
+  evaluationId: string;
+  outcome: Verdict;
+  changes: SkillChange[];
+  kind: (typeof assessment.$inferSelect)["kind"];
+}> {
   const started = performance.now();
 
   const [attempt] = await db
-    .select({ assessmentId: assessmentAttempt.assessmentId, completedAt: assessmentAttempt.completedAt })
+    .select({
+      assessmentId: assessmentAttempt.assessmentId,
+      completedAt: assessmentAttempt.completedAt,
+      kind: assessment.kind,
+    })
     .from(assessmentAttempt)
     .innerJoin(assessment, eq(assessment.id, assessmentAttempt.assessmentId))
     .where(and(eq(assessmentAttempt.id, attemptId), eq(assessmentAttempt.userId, userId)))
@@ -208,7 +217,7 @@ export async function gradeAttempt(
     }),
   );
 
-  return { evaluationId, outcome, changes };
+  return { evaluationId, outcome, changes, kind: attempt.kind };
 }
 
 function isUniqueViolation(error: unknown): boolean {
