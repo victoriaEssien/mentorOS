@@ -200,3 +200,44 @@ async function missionHistory(userId: string, skillId: string) {
   }
   return [...byMission.values()].slice(0, 5);
 }
+
+export class MissionNotFoundError extends Error {
+  constructor() {
+    super("Mission not found");
+    this.name = "MissionNotFoundError";
+  }
+}
+
+/** Starting: the learner has opened the mission and is working on it. */
+export async function startMission(userId: string, missionId: string): Promise<void> {
+  await moveMission(userId, missionId, ["assigned"], "in_progress");
+}
+
+/**
+ * Skipping frees the slot for a different mission. It isn't evidence either way: a skipped
+ * mission says nothing about what the learner can do.
+ */
+export async function skipMission(userId: string, missionId: string): Promise<void> {
+  await moveMission(userId, missionId, ["assigned", "in_progress"], "skipped");
+}
+
+/** Moves a mission the learner owns between states; doing nothing if it's already moved on. */
+async function moveMission(
+  userId: string,
+  missionId: string,
+  from: (typeof mission.$inferSelect)["status"][],
+  to: (typeof mission.$inferSelect)["status"],
+) {
+  const [row] = await db
+    .select({ status: mission.status })
+    .from(mission)
+    .where(and(eq(mission.id, missionId), eq(mission.userId, userId)))
+    .limit(1);
+  if (!row) throw new MissionNotFoundError();
+  if (!from.includes(row.status)) return;
+
+  await db
+    .update(mission)
+    .set({ status: to })
+    .where(and(eq(mission.id, missionId), eq(mission.userId, userId), inArray(mission.status, from)));
+}
