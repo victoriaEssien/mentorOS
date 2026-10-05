@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
 import { NotImplementedError } from "@/lib/errors";
 
+import { ensureDiagnostic } from "./diagnostic";
+
 /**
  * The core loop (PRD §40): Assess → Learn → Practice → Prove → Evaluate → Adapt.
  *
@@ -32,9 +34,12 @@ export type OnboardingInput = {
 };
 
 /**
- * Saves onboarding context (PRD §8) and the learner's tracks in one transaction. Background is
- * context for the mentor; it never writes a skill estimate. Safe to call again: it replaces the
- * previous answers.
+ * Saves onboarding context (PRD §8) and the learner's tracks in one transaction, then writes the
+ * diagnostic. Background is context for the mentor; it never writes a skill estimate. Safe to call
+ * again: it replaces the previous answers and reuses an unstarted diagnostic.
+ *
+ * If the diagnostic can't be written (model down, bad output), onboarding still counts as done and
+ * assessmentId is null; Today offers to build it again.
  */
 export async function completeOnboarding(
   userId: string,
@@ -52,7 +57,12 @@ export async function completeOnboarding(
     db.insert(userTrack).values(trackIds.map((trackId) => ({ userId, trackId }))),
   ]);
 
-  return { assessmentId: null };
+  try {
+    return { assessmentId: await ensureDiagnostic(userId) };
+  } catch (error) {
+    console.error(JSON.stringify({ event: "diagnostic.failed", userId, reason: String(error) }));
+    return { assessmentId: null };
+  }
 }
 
 export async function submitAssessmentAttempt(attemptId: string): Promise<void> {

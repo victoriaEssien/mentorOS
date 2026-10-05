@@ -23,7 +23,10 @@ export async function getTaxonomy() {
 
 export type Taxonomy = Awaited<ReturnType<typeof getTaxonomy>>;
 
-/** Assessable (leaf) skills placed in any of the given tracks, in tree order, without repeats. */
+/**
+ * Assessable (leaf) skills placed in any of the given tracks, in tree order, without repeats.
+ * A skill placed in two of the tracks keeps its home placement (SQL stays under Databases).
+ */
 export async function getTrackSkills(trackIds: readonly string[]) {
   "use cache";
   cacheLife("days");
@@ -37,14 +40,25 @@ export async function getTrackSkills(trackIds: readonly string[]) {
       name: skill.name,
       description: skill.description,
       trackId: skillPlacement.trackId,
+      parentId: skillPlacement.parentId,
+      homeTrackId: skill.trackId,
     })
     .from(skillPlacement)
     .innerJoin(skill, eq(skillPlacement.skillId, skill.id))
     .where(and(inArray(skillPlacement.trackId, [...trackIds]), isNotNull(skillPlacement.parentId)))
     .orderBy(skillPlacement.sortOrder);
 
-  const seen = new Set<string>();
-  return rows.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
+  const placements = rows.map(({ homeTrackId, ...row }) => ({
+    ...row,
+    parentId: row.parentId!,
+    home: homeTrackId === row.trackId,
+  }));
+  const chosen = new Map<string, (typeof placements)[number]>();
+  for (const placement of placements) {
+    const current = chosen.get(placement.id);
+    if (!current || (!current.home && placement.home)) chosen.set(placement.id, placement);
+  }
+  return placements.filter((placement) => chosen.get(placement.id) === placement);
 }
 
 export async function getPrerequisiteEdges(): Promise<PrerequisiteEdge[]> {
