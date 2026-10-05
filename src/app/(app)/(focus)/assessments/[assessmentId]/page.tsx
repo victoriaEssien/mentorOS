@@ -1,20 +1,37 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+
+import { getAssessmentForPlayer } from "@/server/queries/assessments";
 import { requireLearner } from "@/server/session";
 
+import { AssessmentPlayer } from "./player";
+
+export const metadata: Metadata = { title: "Assessment" };
+
+// Handing in grades every written answer with the model before redirecting to the results.
+export const maxDuration = 300;
+
 export default async function AssessmentPage({ params }: PageProps<"/assessments/[assessmentId]">) {
-  await requireLearner();
+  const { user } = await requireLearner();
   const { assessmentId } = await params;
 
+  const data = await getAssessmentForPlayer(user.id, assessmentId);
+  if (!data || data.items.length === 0) notFound();
+  if (data.completedAttempt) redirect(`/assessments/${assessmentId}/results`);
+
   return (
-    <PagePlaceholder
-      title="Assessment"
-      prd="PRD §9 Assessment types"
-      purpose={`Take assessment ${assessmentId}. Renders each item type (knowledge, conceptual, code, debugging, scenario, problem-solving, practical, security, data, electronics).`}
-      todo={[
-        "One item at a time, optional time limits",
-        "Mentor available for hints only (hintsUsed is recorded)",
-        "On submit: loop.submitAssessmentAttempt",
-      ]}
+    <AssessmentPlayer
+      assessmentId={data.assessment.id}
+      isDiagnostic={data.assessment.kind === "diagnostic"}
+      title={data.assessment.title}
+      reason={data.assessment.reason}
+      items={data.items.map(({ id, type, prompt, timeLimitSeconds }) => ({
+        id,
+        type,
+        prompt,
+        timeLimitSeconds,
+      }))}
+      initialResponses={data.responses}
     />
   );
 }

@@ -65,7 +65,8 @@ export async function completeOnboarding(
   }
 }
 
-export async function submitAssessmentAttempt(attemptId: string): Promise<void> {
+export async function submitAssessmentAttempt(userId: string, attemptId: string): Promise<void> {
+  void userId;
   void attemptId;
   throw new NotImplementedError("submitAssessmentAttempt");
 }

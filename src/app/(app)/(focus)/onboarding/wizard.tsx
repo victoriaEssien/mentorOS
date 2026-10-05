@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, ChevronLeft, LoaderCircle, Plus, X } from "lucide-react";
+import { Check, ChevronLeft, Plus, X } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive, ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { startTransition, useActionState, useState } from "react";
 
 import { FormAlert } from "@/components/form/form-alert";
 import { CellMeter } from "@/components/system/cell-meter";
+import { WorkingScreen } from "@/components/system/working-screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -470,24 +471,9 @@ function SelectionMark({ selected }: { selected: boolean }) {
 /** Shown while the diagnostic is being written. Honest about what is happening and how long it takes. */
 function BuildingScreen({ trackNames }: { trackNames: string[] }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-6 pt-safe pb-safe" role="status">
-      <div className="w-full max-w-sm">
-        <CellMeter
-          value={1}
-          label="Building your assessment"
-          animate
-          className="[&>span]:h-4 [&>span]:[animation-direction:alternate] [&>span]:[animation-iteration-count:infinite]"
-        />
-        <h1 className="mt-8 text-title">Building your assessment</h1>
-        <p className="mt-2 text-callout text-muted-foreground">
-          Writing questions for {trackNames.join(" and ") || "your tracks"}, from recall up to problems you
-          haven&apos;t seen before. This takes about a minute; keep this screen open.
-        </p>
-        <p className="mt-6 flex items-center gap-2 text-footnote text-muted-foreground">
-          <LoaderCircle className="size-4 animate-spin" aria-hidden />
-          Working
-        </p>
-      </div>
-    </div>
+    <WorkingScreen title="Building your assessment">
+      Writing questions for {trackNames.join(" and ") || "your tracks"}, from recall up to problems you
+      haven&apos;t seen before. This takes about a minute; keep this screen open.
+    </WorkingScreen>
   );
 }
