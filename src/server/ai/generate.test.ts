@@ -3,20 +3,23 @@ import { z } from "zod";
 
 import { AiGenerationError, generateStructured } from "./generate";
 
-const reply = vi.hoisted(() => ({ text: "" }));
+const reply = vi.hoisted(() => ({ text: "", lastMaxOutputTokens: undefined as number | undefined }));
 
 vi.mock("./provider", async () => {
   const { MockLanguageModelV4 } = await import("ai/test");
   const model = new MockLanguageModelV4({
-    doGenerate: async () => ({
-      content: [{ type: "text", text: reply.text }],
-      finishReason: { unified: "stop", raw: undefined },
-      usage: {
-        inputTokens: { total: 12, noCache: 12, cacheRead: undefined, cacheWrite: undefined },
-        outputTokens: { total: 34, text: 34, reasoning: undefined },
-      },
-      warnings: [],
-    }),
+    doGenerate: async (options: { maxOutputTokens?: number }) => {
+      reply.lastMaxOutputTokens = options.maxOutputTokens;
+      return {
+        content: [{ type: "text", text: reply.text }],
+        finishReason: { unified: "stop", raw: undefined },
+        usage: {
+          inputTokens: { total: 12, noCache: 12, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 34, text: 34, reasoning: undefined },
+        },
+        warnings: [],
+      };
+    },
   });
   return {
     models: { fast: model, smart: model },
@@ -39,6 +42,7 @@ const call = () =>
     prompt: "Go.",
     schema,
     schemaName: "Thing",
+    maxOutputTokens: 777,
   });
 
 describe("generateStructured", () => {
@@ -54,6 +58,12 @@ describe("generateStructured", () => {
       inputTokens: 12,
       outputTokens: 34,
     });
+  });
+
+  it("passes the output cap to the model, so no call can run away", async () => {
+    reply.text = JSON.stringify({ title: "Capped", items: [] });
+    await call();
+    expect(reply.lastMaxOutputTokens).toBe(777);
   });
 
   it("turns output that breaks the schema into an AiGenerationError", async () => {

@@ -95,6 +95,8 @@ export async function generateAssessment(
     schema: generatedAssessmentSchema,
     schemaName: "Assessment",
     schemaDescription: "A set of assessment items with grading rubrics.",
+    // About 1,400 tokens per five items, reasoning included.
+    maxOutputTokens: 8_000,
     abortSignal: input.abortSignal,
   });
 

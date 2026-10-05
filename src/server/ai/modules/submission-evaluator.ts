@@ -110,6 +110,8 @@ export async function evaluateSubmission(input: {
     schema: submissionEvaluationSchema,
     schemaName: "SubmissionEvaluation",
     schemaDescription: "Scores per criterion, per-skill evidence, strengths, problems and the next step.",
+    // About 1,200 tokens normally.
+    maxOutputTokens: 4_000,
     timeoutMs: 150_000,
     abortSignal: input.abortSignal,
   });

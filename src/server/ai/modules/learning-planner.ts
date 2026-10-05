@@ -109,6 +109,8 @@ export async function planLearningPath(
     schema: learningPlanSchema,
     schemaName: "LearningPlan",
     schemaDescription: "An ordered learning path with a reason for each item.",
+    // About 900 tokens normally.
+    maxOutputTokens: 5_000,
     timeoutMs: 120_000,
     abortSignal: input.abortSignal,
   });

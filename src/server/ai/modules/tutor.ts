@@ -49,6 +49,8 @@ export async function explainConcept(input: ExplainConceptInput): Promise<string
       `<question>${input.question.replaceAll("</question>", "</ question>")}</question>`,
     ].join("\n"),
     maxRetries: 1,
+    // Explanations stay under 250 words; this leaves room for reasoning and stops a runaway.
+    maxOutputTokens: 1500,
     timeout: 45_000,
     abortSignal: input.abortSignal,
     ...callSettings("fast"),

@@ -102,6 +102,8 @@ export async function gradeAnswer(
     schema: answerGradeSchema,
     schemaName: "AnswerGrade",
     schemaDescription: "The grade for one written answer, with per-skill evidence.",
+    // About 250 tokens normally.
+    maxOutputTokens: 2_000,
     timeoutMs: 75_000,
     abortSignal: input.abortSignal,
   });

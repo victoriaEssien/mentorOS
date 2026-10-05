@@ -40,6 +40,7 @@ export async function generateStructured<SCHEMA extends z.ZodType>({
   schema,
   schemaName,
   schemaDescription,
+  maxOutputTokens,
   timeoutMs = 180_000,
   abortSignal,
 }: {
@@ -53,6 +54,12 @@ export async function generateStructured<SCHEMA extends z.ZodType>({
   schema: SCHEMA;
   schemaName: string;
   schemaDescription?: string;
+  /**
+   * Required: the most this call may generate, reasoning included. A stuck structured answer can
+   * otherwise run to the model's limit, and a request abandoned on timeout may keep generating, and
+   * billing, on the provider's side. Size it at a few times the module's normal output.
+   */
+  maxOutputTokens: number;
   timeoutMs?: number;
   abortSignal?: AbortSignal;
 }): Promise<{ output: z.infer<SCHEMA>; meta: GenerationMeta }> {
@@ -65,6 +72,7 @@ export async function generateStructured<SCHEMA extends z.ZodType>({
       prompt,
       output: Output.object({ schema, name: schemaName, description: schemaDescription }),
       maxRetries: 2,
+      maxOutputTokens,
       timeout: timeoutMs,
       abortSignal,
       ...callSettings(tier, effort),

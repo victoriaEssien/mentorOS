@@ -98,6 +98,8 @@ export async function generateMission(
     schema: generatedMissionSchema,
     schemaName: "Mission",
     schemaDescription: "One practical mission with instructions, a deliverable and scoring criteria.",
+    // About 1,900 tokens for a weekly challenge.
+    maxOutputTokens: 6_000,
     timeoutMs: 120_000,
     abortSignal: input.abortSignal,
   });
