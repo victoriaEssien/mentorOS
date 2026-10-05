@@ -63,7 +63,11 @@ export default async function AssessmentResultsPage({
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-window pb-safe">
         <div className="mx-auto w-full max-w-2xl px-4 py-3 sm:px-6 lg:px-10">
           <Button asChild size="lg" className="w-full">
-            <Link href="/path">See your learning path</Link>
+            {assessment.kind === "diagnostic" ? (
+              <Link href="/path">See your learning path</Link>
+            ) : (
+              <Link href="/profile">See your skills</Link>
+            )}
           </Button>
         </div>
       </footer>

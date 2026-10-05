@@ -3,8 +3,10 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
+import { buildLearnerContext } from "@/server/ai/context";
 
 import { gradeAttempt } from "./assessment-grading";
+import { createCheck, REASSESS_BELOW_CONFIDENCE, surpriseCheckIfDue } from "./checks";
 import { ensureDiagnostic } from "./diagnostic";
 import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
@@ -119,4 +121,30 @@ export async function submitMission(
 ): Promise<{ evaluationId: string; pathFinished: boolean }> {
   const { evaluationId, pathFinished } = await submitWork(userId, missionId, work);
   return { evaluationId, pathFinished };
+}
+
+/**
+ * A check on one skill the learner asked for ("I think I understand this. Test me."). When the
+ * estimate rests on too little evidence it is pitched as a reassessment instead (PRD §18).
+ */
+export async function testSkill(userId: string, skillSlug: string): Promise<{ assessmentId: string }> {
+  const context = await buildLearnerContext(userId);
+  const estimate = context.skills.find((s) => s.slug === skillSlug);
+  const reassess = estimate !== undefined && estimate.confidence < REASSESS_BELOW_CONFIDENCE;
+  const name = estimate?.name ?? "this skill";
+  const assessmentId = await createCheck(
+    userId,
+    reassess ? "reassessment" : "knowledge_check",
+    [skillSlug],
+    reassess
+      ? `Your ${name} estimate rests on little evidence, so this checks it from angles you haven't seen.`
+      : `You asked to be tested on ${name}.`,
+  );
+  return { assessmentId };
+}
+
+/** Today's surprise check, when one is due (PRD §18). Null on most days. */
+export async function surpriseCheck(userId: string): Promise<{ assessmentId: string } | null> {
+  const assessmentId = await surpriseCheckIfDue(userId);
+  return assessmentId ? { assessmentId } : null;
 }

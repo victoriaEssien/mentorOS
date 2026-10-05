@@ -2,13 +2,13 @@ import "server-only";
 import { and, eq, isNotNull, notExists } from "drizzle-orm";
 
 import { db } from "@/db";
-import { assessment, assessmentAttempt, assessmentItem, track, userTrack } from "@/db/schema";
+import { assessment, assessmentAttempt, track, userTrack } from "@/db/schema";
 import { buildLearnerContext } from "@/server/ai/context";
 import { AiGenerationError } from "@/server/ai/generate";
 import { generateAssessment, PROMPT_VERSION } from "@/server/ai/modules/assessment-generator";
-import type { GeneratedAssessmentItem } from "@/server/ai/schemas";
 import { getTrackSkills } from "@/server/queries/skills";
 
+import { saveAssessment } from "./assessment-store";
 import { pickDiagnosticSkills, planDiagnosticChunks } from "./diagnostic-plan";
 
 /** The learner's diagnostic that hasn't been completed yet, if any. */
@@ -81,42 +81,16 @@ export async function ensureDiagnostic(userId: string): Promise<string> {
       : new AiGenerationError("assessment-generator", "couldn't write the diagnostic");
   }
 
-  // Easier questions first, so the learner warms up before the transfer problems.
-  const items: GeneratedAssessmentItem[] = succeeded
-    .flatMap((result) => result.assessment.items)
-    .map((item, index) => ({ item, index }))
-    .sort((a, b) => a.item.difficulty - b.item.difficulty || a.index - b.index)
-    .map(({ item }) => item);
-
-  const assessmentId = crypto.randomUUID();
   const trackNames = tracks.map((t) => t.name);
-
-  await db.batch([
-    db.insert(assessment).values({
-      id: assessmentId,
-      userId,
-      kind: "diagnostic",
-      title: `Diagnostic: ${trackNames.join(" and ")}`,
-      reason: "Before planning anything, the mentor needs to see what you can already do.",
-      targetSkillIds: skills.map((skill) => skill.id),
-      generatedBy: `${succeeded[0].meta.model} assessment-generator@${PROMPT_VERSION}`,
-    }),
-    db.insert(assessmentItem).values(
-      items.map((item, order) => ({
-        assessmentId,
-        type: item.type,
-        order,
-        prompt: item.prompt,
-        rubric: item.rubric,
-        skillIds: item.skills.flatMap((slug) => {
-          const id = skillIdBySlug.get(slug);
-          return id ? [id] : [];
-        }),
-        difficulty: item.difficulty,
-        timeLimitSeconds: item.timeLimitSeconds,
-      })),
-    ),
-  ]);
-
-  return assessmentId;
+  return saveAssessment({
+    userId,
+    kind: "diagnostic",
+    title: `Diagnostic: ${trackNames.join(" and ")}`,
+    reason: "Before planning anything, the mentor needs to see what you can already do.",
+    items: succeeded.flatMap((result) => result.assessment.items),
+    skillIdBySlug,
+    generatedBy: `${succeeded[0].meta.model} assessment-generator@${PROMPT_VERSION}`,
+    // Every picked skill, even one whose chunk failed: the diagnostic set out to probe it.
+    targetSkillIds: skills.map((skill) => skill.id),
+  });
 }

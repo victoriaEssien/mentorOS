@@ -7,9 +7,15 @@ import { Journal } from "@/components/system/journal";
 import { abilityLabel, confidenceCaption } from "@/components/system/skill-row";
 import { confidenceBand } from "@/server/learning/skill-estimate";
 import { getSkillDetail } from "@/server/queries/profile";
+import { REASSESS_BELOW_CONFIDENCE } from "@/server/learning/checks";
 import { requireLearner } from "@/server/session";
 
+import { TestMe } from "./test-me";
+
 export const metadata: Metadata = { title: "Skill" };
+
+// "Test me" writes a check with the model inside this route's server action.
+export const maxDuration = 120;
 
 export default async function SkillPage({ params }: PageProps<"/profile/skills/[slug]">) {
   const { user } = await requireLearner();
@@ -51,6 +57,14 @@ export default async function SkillPage({ params }: PageProps<"/profile/skills/[
           className="mt-4 [&>span]:h-4"
         />
       </div>
+
+      <ScreenSection>
+        <TestMe
+          slug={skill.slug}
+          name={skill.name}
+          reassess={estimate !== null && estimate.confidence < REASSESS_BELOW_CONFIDENCE}
+        />
+      </ScreenSection>
 
       {skill.description ? (
         <ScreenSection title="What it covers">

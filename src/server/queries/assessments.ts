@@ -169,3 +169,31 @@ export async function getAssessmentResults(userId: string, assessmentId: string)
 export type AssessmentReview = NonNullable<
   NonNullable<Awaited<ReturnType<typeof getAssessmentResults>>>["review"]
 >;
+
+/** Every assessment the learner has, newest first, with whether it's done and how it went. */
+export async function getAssessmentHistory(userId: string) {
+  const rows = await db
+    .select({
+      id: assessment.id,
+      kind: assessment.kind,
+      title: assessment.title,
+      createdAt: assessment.createdAt,
+      completedAt: assessmentAttempt.completedAt,
+      outcome: evaluation.outcome,
+      result: evaluation.result,
+    })
+    .from(assessment)
+    .leftJoin(
+      assessmentAttempt,
+      and(eq(assessmentAttempt.assessmentId, assessment.id), isNotNull(assessmentAttempt.completedAt)),
+    )
+    .leftJoin(evaluation, eq(evaluation.attemptId, assessmentAttempt.id))
+    .where(eq(assessment.userId, userId))
+    .orderBy(desc(assessment.createdAt))
+    .limit(50);
+
+  return rows.map(({ result, ...row }) => ({
+    ...row,
+    score: result ? (result as AttemptEvaluationResult).score : null,
+  }));
+}
