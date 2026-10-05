@@ -1,4 +1,14 @@
-import { type AnyPgColumn, index, integer, pgTable, primaryKey, real, text, uuid } from "drizzle-orm/pg-core";
+import {
+  type AnyPgColumn,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  real,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { createdAt, evidenceSourceType, id, updatedAt } from "./_shared";
 import { user } from "./auth";
@@ -91,6 +101,8 @@ export const userSkill = pgTable(
     ability: real().notNull(),
     confidence: real().notNull(),
     evidenceCount: integer().default(0).notNull(),
+    /** When the newest evidence for this skill arrived. Drives retention checks. */
+    lastEvidenceAt: timestamp({ withTimezone: true }),
     updatedAt: updatedAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.skillId] })],
