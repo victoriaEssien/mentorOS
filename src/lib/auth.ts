@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
+import { cache } from "react";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
@@ -41,7 +42,17 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 
-/** Current session in a server component, server action or route handler. Null when signed out. */
-export async function getSession() {
-  return auth.api.getSession({ headers: await headers() });
-}
+/** Social providers that are switched on, in the order their buttons appear. */
+export const socialProviders = (["github", "google"] as const).filter((provider) =>
+  provider === "github"
+    ? Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET)
+    : Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+);
+
+export type SocialProvider = (typeof socialProviders)[number];
+
+/**
+ * Current session in a server component, server action or route handler. Null when signed out.
+ * Memoised per request, so every component on a page shares one lookup.
+ */
+export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));

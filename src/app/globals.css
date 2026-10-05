@@ -44,6 +44,8 @@
   --color-signal-strong: var(--signal-strong);
   --color-signal-foreground: var(--signal-foreground);
   --color-signal-soft: var(--signal-soft);
+  --color-console: #16181c;
+  --color-console-foreground: #eceef1;
   --color-pass: var(--pass);
   --color-partial: var(--partial);
   --color-fail: var(--fail);
@@ -81,6 +83,24 @@
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  /* Evidence lands one cell at a time; windows rise into place. */
+  --animate-cell-fill: cell-fill 520ms var(--ease-out-expo) both;
+  --animate-rise: rise 640ms var(--ease-out-expo) both;
+
+  @keyframes cell-fill {
+    from {
+      opacity: 0;
+      transform: scaleY(0.35);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
 
   --shadow-window: 0 1px 2px rgb(22 24 28 / 0.06), 0 8px 24px -12px rgb(22 24 28 / 0.18);
   --shadow-dock: 0 -1px 0 var(--border), 0 -12px 32px -16px rgb(22 24 28 / 0.18);
@@ -178,6 +198,11 @@
 }
 @utility pr-safe {
   padding-right: env(safe-area-inset-right);
+}
+
+/* Low-confidence evidence: the cell is filled, but hatched rather than solid. */
+@utility bg-hatch {
+  background-image: repeating-linear-gradient(-45deg, currentColor 0 1.5px, transparent 1.5px 4.5px);
 }
 
 /* Press feedback for anything tappable: a physical push, never a hover-only effect. */

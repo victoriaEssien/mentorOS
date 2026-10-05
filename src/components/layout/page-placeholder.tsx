@@ -10,10 +10,11 @@ type PagePlaceholderProps = {
   purpose: string;
   todo?: string[];
   back?: { href: Route; label: string };
+  children?: React.ReactNode;
 };
 
 /** Temporary scaffold shown until a page is built. Delete once the real page exists. */
-export function PagePlaceholder({ title, prd, purpose, todo = [], back }: PagePlaceholderProps) {
+export function PagePlaceholder({ title, prd, purpose, todo = [], back, children }: PagePlaceholderProps) {
   return (
     <Screen>
       <ScreenHeader title={title} subtitle={purpose} back={back} />
@@ -27,6 +28,7 @@ export function PagePlaceholder({ title, prd, purpose, todo = [], back }: PagePl
           </ul>
         )}
       </div>
+      {children}
     </Screen>
   );
 }
