@@ -18,3 +18,20 @@ export const models = {
 export type ModelTier = keyof typeof models;
 
 export const modelId = (tier: ModelTier) => (tier === "fast" ? env.AI_MODEL_FAST : env.AI_MODEL_SMART);
+
+/** How hard the model thinks before answering. Higher is slower and costs more. */
+export type Effort = "low" | "medium" | "high";
+
+const DEFAULT_EFFORT: Record<ModelTier, Effort> = { fast: "low", smart: "medium" };
+
+/**
+ * Provider-specific call settings for a tier. Reasoning summaries are switched off: no module
+ * reads them, and they add latency.
+ */
+export function callSettings(tier: ModelTier, effort: Effort = DEFAULT_EFFORT[tier]) {
+  return {
+    providerOptions: {
+      openai: { reasoningEffort: effort, reasoningSummary: null },
+    },
+  };
+}

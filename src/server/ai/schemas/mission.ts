@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Structured output of the Mission Generator (PRD §13, §14). */
+/** Structured output of the Mission Generator (PRD §13, §14). Strict-mode safe: no optionals. */
 export const generatedMissionSchema = z.object({
   type: z.enum([
     "learn",
@@ -17,7 +17,7 @@ export const generatedMissionSchema = z.object({
   title: z.string(),
   objective: z.string(),
   reason: z.string().describe("Why this mission, now, for this learner"),
-  estimatedMinutes: z.number().int().positive(),
+  estimatedMinutes: z.number().int().min(5),
   skills: z.array(z.string()).describe("Skill slugs practised"),
   requiredKnowledge: z.array(z.string()),
   instructions: z.string(),
@@ -34,9 +34,9 @@ export const generatedMissionSchema = z.object({
     .array(
       z.object({
         title: z.string(),
-        url: z.string().optional(),
+        url: z.string().nullable().describe("A real, well-known URL, or null if unsure"),
         kind: z.string(),
-        note: z.string().optional(),
+        note: z.string().nullable(),
       }),
     )
     .max(3)
