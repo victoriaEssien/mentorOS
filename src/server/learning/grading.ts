@@ -10,14 +10,17 @@ import type { AnswerGrade, SkillJudgement } from "@/server/ai/schemas";
  */
 
 /** Bump when the rules below change, so stored evaluations stay traceable. */
-export const GRADING_VERSION = "g1";
+export const GRADING_VERSION = "g2";
 
 export type Verdict = "strong" | "pass" | "partial" | "fail";
 
-/** How good an answer was, for the learner. Difficulty doesn't change it. */
+/**
+ * How good an answer was, for the learner. Difficulty doesn't change it. The bands follow the
+ * Skill Evaluator's scale: 0.7 and up means the core of the answer is right.
+ */
 export function verdictFor(score: number): Verdict {
   if (score >= 0.85) return "strong";
-  if (score >= 0.6) return "pass";
+  if (score >= 0.7) return "pass";
   if (score >= 0.3) return "partial";
   return "fail";
 }

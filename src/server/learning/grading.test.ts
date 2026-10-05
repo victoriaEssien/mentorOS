@@ -54,7 +54,7 @@ describe("verdictFor", () => {
       "strong",
       "strong",
       "pass",
-      "pass",
+      "partial",
       "partial",
       "partial",
       "fail",
