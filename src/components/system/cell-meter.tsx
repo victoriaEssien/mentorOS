@@ -28,7 +28,7 @@ export function CellMeter({
 }) {
   const clamped = Math.min(1, Math.max(0, value));
   const filled = Math.round(clamped * 10);
-  const percent = Math.round(clamped * 100);
+  const percent = Math.floor(clamped * 100);
 
   return (
     <div

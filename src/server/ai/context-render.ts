@@ -89,7 +89,8 @@ const MOMENTUM_GUIDANCE: Record<Momentum, string | null> = {
 
 const LIMITS = { skills: 30, missions: 5, assessments: 5, mistakes: 8 };
 
-const percent = (value: number) => `${Math.round(value * 100)}%`;
+// Floored, so a percentage never reads as a higher band than the estimate is in (54.9% is "developing").
+const percent = (value: number) => `${Math.floor(value * 100)}%`;
 
 /** Compact text rendering of the context for prompts. Bounded lists keep token use predictable. */
 export function renderLearnerContext(context: LearnerContext): string {

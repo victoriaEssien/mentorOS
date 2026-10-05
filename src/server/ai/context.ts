@@ -73,9 +73,10 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
         title: assessment.title,
         kind: assessment.kind,
         completedAt: assessmentAttempt.completedAt,
+        // The evaluation's score counts unanswered questions as zero; response averages can't.
         score: sql<
           number | null
-        >`(select avg(score) from assessment_response where attempt_id = ${assessmentAttempt.id})`,
+        >`(select (${evaluation.result} ->> 'score')::real from ${evaluation} where ${evaluation.attemptId} = ${assessmentAttempt.id})`,
       })
       .from(assessmentAttempt)
       .innerJoin(assessment, eq(assessmentAttempt.assessmentId, assessment.id))
@@ -176,16 +177,19 @@ async function outcomesByMission(missionIds: string[]): Promise<Map<string, Outc
   return outcomes;
 }
 
-/** Weaknesses from submission evaluations and misconceptions from graded assessments. */
+/**
+ * Weaknesses from submission evaluations, and misconceptions from graded assessments (their
+ * per-answer grades are under `items`, see AttemptEvaluationResult).
+ */
 function mistakesFrom(result: unknown): string[] {
   if (!result || typeof result !== "object") return [];
-  const record = result as { weaknesses?: unknown; grades?: unknown };
+  const record = result as { weaknesses?: unknown; items?: unknown };
 
   const weaknesses = Array.isArray(record.weaknesses)
     ? record.weaknesses.filter((value): value is string => typeof value === "string")
     : [];
-  const misconceptions = Array.isArray(record.grades)
-    ? record.grades.flatMap((grade) =>
+  const misconceptions = Array.isArray(record.items)
+    ? record.items.flatMap((grade) =>
         grade &&
         typeof grade === "object" &&
         typeof (grade as { misconception?: unknown }).misconception === "string"

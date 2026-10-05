@@ -39,7 +39,7 @@ export default async function SkillPage({ params }: PageProps<"/profile/skills/[
           </div>
           {estimate ? (
             <span className="font-mono text-2xl font-semibold tabular-nums">
-              {Math.round(estimate.ability * 100)}%
+              {Math.floor(estimate.ability * 100)}%
             </span>
           ) : null}
         </div>
