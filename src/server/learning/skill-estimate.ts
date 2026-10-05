@@ -47,7 +47,7 @@ export const SOURCE_WEIGHT: Record<EvidenceSourceType, number> = {
 export const RECENCY_HALF_LIFE_DAYS = 60;
 
 /** Where an estimate starts before evidence, and how hard that start pulls. */
-const PRIOR_ABILITY = 0.5;
+export const PRIOR_ABILITY = 0.5;
 const PRIOR_WEIGHT = 0.5;
 
 /** Total weight at which confidence reaches about 63% (before the consistency penalty). */

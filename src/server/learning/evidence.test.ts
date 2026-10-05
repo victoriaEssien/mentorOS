@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { planSkillChanges } from "./evidence";
-import type { EvidenceObservation } from "./skill-estimate";
+import { planSkillChanges, replayEvidence } from "./evidence";
+import { estimateSkill, type EvidenceObservation } from "./skill-estimate";
 
 const NOW = new Date("2026-10-05T12:00:00Z");
 
@@ -45,5 +45,37 @@ describe("planSkillChanges", () => {
 
   it("does nothing without new rows", () => {
     expect(planSkillChanges(new Map([["sql", [prior]]]), [], NOW)).toEqual([]);
+  });
+});
+
+describe("replayEvidence", () => {
+  const at = (day: number) => new Date(Date.UTC(2026, 9, day, 12));
+  const observation = (day: number, score: number, confidence = 0.6): EvidenceObservation => ({
+    score,
+    confidence,
+    sourceType: "assessment",
+    createdAt: at(day),
+  });
+
+  it("orders oldest first and measures the first observation from the neutral start", () => {
+    const steps = replayEvidence([observation(3, 0.2), observation(1, 0.9)]);
+
+    expect(steps.map((step) => step.createdAt)).toEqual([at(1), at(3)]);
+    expect(steps[0].abilityBefore).toBe(0.5);
+    expect(steps[0].delta).toBeGreaterThan(0);
+    // Measured at the second observation's time, so the first has decayed a little since.
+    expect(steps[1].abilityBefore).toBeCloseTo(steps[0].abilityAfter, 2);
+    expect(steps[1].delta).toBeLessThan(0);
+  });
+
+  it("ends where the estimate over everything ends", () => {
+    const all = [observation(1, 0.9), observation(2, 0.4), observation(5, 0.7, 0.9)];
+    const steps = replayEvidence(all);
+    expect(steps.at(-1)!.abilityAfter).toBe(estimateSkill(all, at(5)).ability);
+  });
+
+  it("keeps the caller's fields", () => {
+    const [step] = replayEvidence([{ ...observation(1, 0.8), id: "row-1" }]);
+    expect(step.id).toBe("row-1");
   });
 });

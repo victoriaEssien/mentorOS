@@ -40,10 +40,10 @@ const exampleSkills: { name: string; value: number; confidence: Confidence }[] =
 ];
 
 const exampleJournal: JournalEntry[] = [
-  { id: "1", when: "Sat", skill: "sql", delta: 0.05, text: "Knowledge check on indexes: pass" },
-  { id: "2", when: "Fri", skill: "sql", delta: -0.06, text: "Surprise check on isolation levels: missed" },
-  { id: "3", when: "Wed", skill: "sql", delta: 0.04, text: "Mission, schema for a task app: partial" },
-  { id: "4", when: "Mon", skill: "sql", delta: 0.12, text: "Diagnostic, JOIN scenario: strong" },
+  { id: "1", when: "Sat", label: "sql", delta: 0.05, text: "Knowledge check on indexes: pass" },
+  { id: "2", when: "Fri", label: "sql", delta: -0.06, text: "Surprise check on isolation levels: missed" },
+  { id: "3", when: "Wed", label: "sql", delta: 0.04, text: "Mission, schema for a task app: partial" },
+  { id: "4", when: "Mon", label: "sql", delta: 0.12, text: "Diagnostic, JOIN scenario: strong" },
 ];
 
 export default function HomePage() {

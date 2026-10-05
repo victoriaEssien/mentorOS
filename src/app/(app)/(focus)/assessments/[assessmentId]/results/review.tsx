@@ -1,13 +1,12 @@
 import { Check, ChevronRight, CircleHelp, Minus, X } from "lucide-react";
 
-import { CellMeter } from "@/components/system/cell-meter";
 import { CodeBlock, RichText } from "@/components/system/rich-text";
+import { confidenceCaption, SkillRow } from "@/components/system/skill-row";
 import { Badge } from "@/components/ui/badge";
 import { itemTypeLabel } from "@/lib/assessment-labels";
 import { cn } from "@/lib/utils";
 import type { ItemGrade } from "@/server/learning/grading";
 import type { AssessmentReview } from "@/server/queries/assessments";
-import { abilityBand, confidenceBand, type AbilityBand } from "@/server/learning/skill-estimate";
 
 type Answer = AssessmentReview["answers"][number];
 type MeasuredSkill = AssessmentReview["skills"][number];
@@ -29,13 +28,6 @@ const OUTCOME_BADGE = {
   unknown: { label: "Didn’t know", variant: "neutral", icon: CircleHelp },
   blank: { label: "No answer", variant: "neutral", icon: Minus },
 } as const;
-
-const BAND_LABEL: Record<AbilityBand, string> = {
-  strong: "Strong",
-  intermediate: "Intermediate",
-  developing: "Developing",
-  beginner: "Beginner",
-};
 
 /**
  * Every answer as one cell, in the order asked. Questions get harder left to right, so the shape
@@ -91,31 +83,18 @@ function LegendItem({ outcome, text }: { outcome: Outcome; text: string }) {
 export function SkillList({ skills }: { skills: MeasuredSkill[] }) {
   return (
     <ul className="divide-y divide-rule border-y border-rule">
-      {skills.map((skill, index) => {
-        const confidence = confidenceBand(skill.confidence);
-        return (
-          <li key={skill.id} className="py-3.5">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-body font-semibold">{skill.name}</span>
-              <span className="shrink-0 text-footnote text-muted-foreground">
-                {BAND_LABEL[abilityBand(skill.ability)]}
-              </span>
-            </div>
-            <CellMeter
-              value={skill.ability}
-              confidence={confidence}
-              label={`${skill.name}: ${BAND_LABEL[abilityBand(skill.ability)].toLowerCase()}`}
-              animate
-              delay={160 + index * 70}
-              className="mt-2"
-            />
-            <p className="mt-1.5 text-caption text-muted-foreground">
-              {confidence === "high" ? "High" : confidence === "medium" ? "Medium" : "Low"} confidence, from{" "}
-              {skill.evidenceCount} {skill.evidenceCount === 1 ? "answer" : "answers"}
-            </p>
-          </li>
-        );
-      })}
+      {skills.map((skill, index) => (
+        <li key={skill.id}>
+          <SkillRow
+            name={skill.name}
+            estimate={skill}
+            href={`/profile/skills/${skill.slug}`}
+            caption={confidenceCaption(skill, { one: "answer", many: "answers" })}
+            animate
+            delay={160 + index * 70}
+          />
+        </li>
+      ))}
     </ul>
   );
 }

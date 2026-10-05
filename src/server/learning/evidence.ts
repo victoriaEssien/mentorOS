@@ -1,4 +1,4 @@
-import { estimateSkill, type EvidenceObservation, type SkillEstimate } from "./skill-estimate";
+import { estimateSkill, PRIOR_ABILITY, type EvidenceObservation, type SkillEstimate } from "./skill-estimate";
 
 /**
  * How new evidence changes each affected skill. Pure: the database layer (profile.ts) loads the
@@ -32,6 +32,29 @@ export function planSkillChanges(
       skillId,
       before: estimateSkill([...prior], now),
       after: estimateSkill([...prior, ...added], now),
+    };
+  });
+}
+
+/**
+ * How far each observation moved the ability estimate when it arrived, oldest first: the
+ * deltas in a skill's evidence journal. Each step is estimated as of that observation's time, and
+ * the first one is measured from the neutral starting point the estimate shrinks toward.
+ */
+export function replayEvidence<T extends EvidenceObservation>(
+  observations: readonly T[],
+): (T & { abilityBefore: number; abilityAfter: number; delta: number })[] {
+  const ordered = [...observations].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+  return ordered.map((observation, index) => {
+    const before =
+      index === 0 ? PRIOR_ABILITY : estimateSkill(ordered.slice(0, index), observation.createdAt).ability;
+    const after = estimateSkill(ordered.slice(0, index + 1), observation.createdAt).ability;
+    return {
+      ...observation,
+      abilityBefore: before,
+      abilityAfter: after,
+      delta: Math.round((after - before) * 1000) / 1000,
     };
   });
 }
