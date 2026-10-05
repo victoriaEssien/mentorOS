@@ -77,8 +77,16 @@ Tiers map to `AI_MODEL_FAST` and `AI_MODEL_SMART`. Structured generation uses `g
 Better Auth with the Drizzle adapter. Email/password is on; GitHub and Google switch on when their env vars exist.
 
 - `src/proxy.ts` is an optimistic cookie check for app routes (Next 16 renamed `middleware` to `proxy`).
-- `src/app/(app)/layout.tsx` does the real session check.
-- Server code reads the session with `getSession()` from `src/lib/auth.ts`.
+- Pages do the real check with `requireUser()` or `requireLearner()` from `src/server/session.ts`. `requireLearner()` also sends anyone who hasn't finished onboarding to `/onboarding`.
+- Server code reads the session with `getSession()` from `src/lib/auth.ts` (memoised per request).
+
+## Rendering
+
+Cache Components is on (`next.config.ts`). Layouts stay static so the app shell (dock, side rail) is part of the instant prerendered shell, and Activity keeps recently visited tabs mounted so their state survives a tab switch.
+
+- Anything that reads the request (session, cookies, `searchParams`, URL segments in client hooks) or uncached data (database queries) must sit behind a `<Suspense>` boundary. Every app route has a `loading.tsx` for this, so pages can `await requireLearner()` at the top.
+- Never await request data in a layout.
+- Reads for pages live in `src/server/queries`; writes to learner state stay in `src/server/learning`.
 
 ## Not set up yet (on purpose)
 

@@ -3,16 +3,15 @@
 import { Settings } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
+import { Suspense } from "react";
 
 import { Wordmark } from "@/components/brand/wordmark";
 import { cn } from "@/lib/utils";
 
-import { navItems } from "./nav-items";
+import { activeTab, navItems } from "./nav-items";
 
 /** The dock, stood up as a side rail on laptops and desktops. */
 export function SideRail() {
-  const segment = useSelectedLayoutSegment();
-
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-rule bg-window px-3 py-6 lg:flex">
       <Link
@@ -21,6 +20,23 @@ export function SideRail() {
       >
         <Wordmark />
       </Link>
+      {/* The current segment is URL data; the static shell renders the rail with nothing selected. */}
+      <Suspense fallback={<RailLinks segment={null} />}>
+        <CurrentRailLinks />
+      </Suspense>
+    </aside>
+  );
+}
+
+function CurrentRailLinks() {
+  const segment = useSelectedLayoutSegment();
+  // Settings has its own row in the rail; other sub-screens light their parent tab.
+  return <RailLinks segment={segment === "settings" ? segment : activeTab(segment)} />;
+}
+
+function RailLinks({ segment }: { segment: string | null }) {
+  return (
+    <>
       <nav aria-label="Primary" className="mt-8">
         <ul className="flex flex-col gap-1">
           {navItems.map((item) => (
@@ -37,7 +53,7 @@ export function SideRail() {
           Settings
         </RailLink>
       </div>
-    </aside>
+    </>
   );
 }
 

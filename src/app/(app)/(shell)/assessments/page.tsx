@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 
 import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { requireLearner } from "@/server/session";
 
 export const metadata: Metadata = { title: "Assessments" };
 
-export default function AssessmentsPage() {
+export default async function AssessmentsPage() {
+  await requireLearner();
+
   return (
     <PagePlaceholder
       title="Assessments"

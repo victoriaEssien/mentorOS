@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // Partial prerendering plus Activity: instant static shells, and tabs keep their state
+  // (scroll, drafts) when you switch away and back, like a native app.
+  cacheComponents: true,
 };
 
 export default withSentryConfig(nextConfig, {

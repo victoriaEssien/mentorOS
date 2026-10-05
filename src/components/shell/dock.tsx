@@ -2,37 +2,49 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
+import { Suspense } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { navItems, type NavItem } from "./nav-items";
+import { activeTab, navItems, type NavItem } from "./nav-items";
 
 /**
  * Bottom dock on phones. The current app sits on a signal-yellow selection pill; a tapped app
  * lights up immediately while its screen loads, so a tap never feels ignored.
  */
 export function Dock() {
-  const segment = useSelectedLayoutSegment();
-
   return (
     <nav
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-window pb-safe shadow-dock lg:hidden"
     >
-      <ul className="mx-auto grid max-w-lg grid-cols-5 px-1.5 pt-1.5 pb-1">
-        {navItems.map((item) => (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              aria-current={segment === item.segment ? "page" : undefined}
-              className="flex pressable flex-col items-center gap-1 rounded-md py-1 outline-none focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <DockLabel item={item} current={segment === item.segment} />
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {/* The current segment is URL data; the static shell renders the dock with nothing selected. */}
+      <Suspense fallback={<DockList segment={null} />}>
+        <CurrentDockList />
+      </Suspense>
     </nav>
+  );
+}
+
+function CurrentDockList() {
+  return <DockList segment={activeTab(useSelectedLayoutSegment())} />;
+}
+
+function DockList({ segment }: { segment: string | null }) {
+  return (
+    <ul className="mx-auto grid max-w-lg grid-cols-5 px-1.5 pt-1.5 pb-1">
+      {navItems.map((item) => (
+        <li key={item.href}>
+          <Link
+            href={item.href}
+            aria-current={segment === item.segment ? "page" : undefined}
+            className="flex pressable flex-col items-center gap-1 rounded-md py-1 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <DockLabel item={item} current={segment === item.segment} />
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 

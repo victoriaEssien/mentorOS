@@ -1,17 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Wordmark } from "@/components/brand/wordmark";
-import { getSession } from "@/lib/auth";
 
 /**
  * Sign-in and sign-up. Full screen on phones; on larger screens the form sits in a login window
- * on the desk, the way a system presents its sign-in.
+ * on the desk, the way a system presents its sign-in. Static, so it is part of the instant shell;
+ * the pages check the session inside their own Suspense boundary.
  */
-export default async function AuthLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
-  if (session) redirect("/today");
-
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="pt-safe">

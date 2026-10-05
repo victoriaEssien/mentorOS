@@ -1,6 +1,8 @@
 import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { requireLearner } from "@/server/session";
 
 export default async function AssessmentPage({ params }: PageProps<"/assessments/[assessmentId]">) {
+  await requireLearner();
   const { assessmentId } = await params;
 
   return (

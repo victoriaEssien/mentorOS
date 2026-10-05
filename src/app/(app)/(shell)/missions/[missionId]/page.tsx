@@ -1,6 +1,8 @@
 import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { requireLearner } from "@/server/session";
 
 export default async function MissionPage({ params }: PageProps<"/missions/[missionId]">) {
+  await requireLearner();
   const { missionId } = await params;
 
   return (

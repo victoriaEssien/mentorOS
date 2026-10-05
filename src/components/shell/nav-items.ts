@@ -16,3 +16,13 @@ export const navItems = [
 }[];
 
 export type NavItem = (typeof navItems)[number];
+
+/** Screens pushed from a tab keep that tab lit, the way a native tab bar does. */
+const tabOfSubScreen: Record<string, NavItem["segment"]> = {
+  assessments: "profile",
+  settings: "profile",
+};
+
+export function activeTab(segment: string | null) {
+  return segment ? (tabOfSubScreen[segment] ?? segment) : null;
+}

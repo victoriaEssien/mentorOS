@@ -45,8 +45,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${firaSans.variable} ${firaCode.variable} h-full`}>
-      {/* Extensions (ColorZilla, Grammarly) add attributes to <body> before hydration. */}
+    // Browser extensions add attributes to <html> and <body> before hydration.
+    <html lang="en" className={`${firaSans.variable} ${firaCode.variable} h-full`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
         {children}
         <Toaster />
