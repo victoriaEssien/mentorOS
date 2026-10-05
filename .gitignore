@@ -43,3 +43,6 @@ next-env.d.ts
 
 # sentry
 .env.sentry-build-plugin
+
+# local build tracker
+/TRACKER.md
