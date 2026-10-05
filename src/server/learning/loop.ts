@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
-import { buildLearnerContext } from "@/server/ai/context";
 
 import { gradeAttempt } from "./assessment-grading";
-import { createCheck, REASSESS_BELOW_CONFIDENCE, surpriseCheckIfDue } from "./checks";
+import { checkOnSkill, surpriseCheckIfDue } from "./checks";
 import { ensureDiagnostic } from "./diagnostic";
+import { getMentorThread, replyInThread } from "./mentor-chat";
 import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 import { submitWork, type WorkInput } from "./submissions";
@@ -128,23 +128,28 @@ export async function submitMission(
  * estimate rests on too little evidence it is pitched as a reassessment instead (PRD §18).
  */
 export async function testSkill(userId: string, skillSlug: string): Promise<{ assessmentId: string }> {
-  const context = await buildLearnerContext(userId);
-  const estimate = context.skills.find((s) => s.slug === skillSlug);
-  const reassess = estimate !== undefined && estimate.confidence < REASSESS_BELOW_CONFIDENCE;
-  const name = estimate?.name ?? "this skill";
-  const assessmentId = await createCheck(
-    userId,
-    reassess ? "reassessment" : "knowledge_check",
-    [skillSlug],
-    reassess
-      ? `Your ${name} estimate rests on little evidence, so this checks it from angles you haven't seen.`
-      : `You asked to be tested on ${name}.`,
-  );
-  return { assessmentId };
+  return checkOnSkill(userId, skillSlug);
 }
 
 /** Today's surprise check, when one is due (PRD §18). Null on most days. */
 export async function surpriseCheck(userId: string): Promise<{ assessmentId: string } | null> {
   const assessmentId = await surpriseCheckIfDue(userId);
   return assessmentId ? { assessmentId } : null;
+}
+
+/** The learner's mentor thread with its recent messages, started on first visit (PRD §21). */
+export async function mentorThread(userId: string) {
+  return getMentorThread(userId);
+}
+
+/**
+ * One mentor turn: stores the learner's message and streams the reply as an AI SDK UI message
+ * stream. The mentor acts only through its tools (mentor-tools.ts), which go through this layer.
+ */
+export async function mentorTurn(
+  userId: string,
+  conversationId: string,
+  message: unknown,
+): Promise<Response> {
+  return replyInThread(userId, conversationId, message);
 }

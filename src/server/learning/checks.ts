@@ -143,3 +143,28 @@ export async function surpriseCheckIfDue(userId: string, now: Date = new Date())
     "A short check that something you learned a while ago has stuck. No warning, on purpose.",
   );
 }
+
+/**
+ * A check on one skill the learner asked for. When the estimate rests on too little evidence it is
+ * pitched as a reassessment instead.
+ */
+export async function checkOnSkill(userId: string, skillSlug: string): Promise<{ assessmentId: string }> {
+  const [estimate] = await db
+    .select({ name: skill.name, confidence: userSkill.confidence })
+    .from(skill)
+    .leftJoin(userSkill, and(eq(userSkill.skillId, skill.id), eq(userSkill.userId, userId)))
+    .where(eq(skill.slug, skillSlug))
+    .limit(1);
+  if (!estimate) throw new Error(`No skill "${skillSlug}"`);
+
+  const reassess = estimate.confidence !== null && estimate.confidence < REASSESS_BELOW_CONFIDENCE;
+  const assessmentId = await createCheck(
+    userId,
+    reassess ? "reassessment" : "knowledge_check",
+    [skillSlug],
+    reassess
+      ? `Your ${estimate.name} estimate rests on little evidence, so this checks it from angles you haven't seen.`
+      : `You asked to be tested on ${estimate.name}.`,
+  );
+  return { assessmentId };
+}
