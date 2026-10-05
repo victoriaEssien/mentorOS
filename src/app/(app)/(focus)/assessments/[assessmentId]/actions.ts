@@ -11,7 +11,7 @@ import {
   openAttempt,
   saveResponse,
 } from "@/server/learning/attempts";
-import { refreshLearningPath, submitAssessmentAttempt } from "@/server/learning/loop";
+import { assignNextMission, refreshLearningPath, submitAssessmentAttempt } from "@/server/learning/loop";
 import { requireUser } from "@/server/session";
 
 const uuid = z.uuid();
@@ -73,11 +73,13 @@ export async function finishAssessmentAction(assessmentId: string): Promise<Fini
   redirect(`/assessments/${assessmentId}/results`);
 }
 
+/** First path, then the first mission, so both are waiting when the learner gets to them. */
 async function planAfterGrading(userId: string) {
   try {
     await refreshLearningPath(userId);
+    await assignNextMission(userId, "daily");
   } catch (error) {
-    // The path screen offers to plan again when there is no path.
+    // The path and missions screens offer to try again when either is missing.
     console.error(JSON.stringify({ event: "path.plan_failed", userId, reason: String(error) }));
   }
 }

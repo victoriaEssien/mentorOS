@@ -94,12 +94,21 @@ export const mission = pgTable(
     evaluationCriteria: jsonb().$type<EvaluationCriterion[]>().default([]).notNull(),
     resources: jsonb().$type<MissionResource[]>().default([]).notNull(),
     estimatedMinutes: integer(),
+    /** 1 (guided) to 5 (an open problem they haven't seen), from planDifficulty. */
+    difficulty: integer(),
     dueAt: timestamp({ withTimezone: true }),
     generatedBy: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index().on(t.userId, t.status)],
+  (t) => [
+    index().on(t.userId, t.status),
+    // One mission in play per learner and cadence: a racing second assignment fails instead of
+    // stacking a second daily mission.
+    uniqueIndex("mission_active_index")
+      .on(t.userId, t.cadence)
+      .where(sql`${t.status} in ('assigned', 'in_progress', 'submitted')`),
+  ],
 );
 
 export const missionSkill = pgTable(

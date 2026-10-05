@@ -7,6 +7,7 @@ import { NotImplementedError } from "@/lib/errors";
 
 import { gradeAttempt } from "./assessment-grading";
 import { ensureDiagnostic } from "./diagnostic";
+import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 
 /**
@@ -95,13 +96,15 @@ export async function refreshLearningPath(
   return planPath(userId, learnerRequest);
 }
 
+/**
+ * The learner's next mission for their current path item (PRD §13, §17), or the one already in
+ * play for this cadence. Throws NoPathError when there is no path to work from yet.
+ */
 export async function assignNextMission(
   userId: string,
-  cadence: "daily" | "weekly" = "daily",
-): Promise<{ missionId: string }> {
-  void userId;
-  void cadence;
-  throw new NotImplementedError("assignNextMission");
+  cadence: Cadence = "daily",
+): Promise<{ missionId: string; created: boolean }> {
+  return assignMission(userId, cadence);
 }
 
 export async function submitMission(submissionId: string): Promise<{ evaluationId: string }> {

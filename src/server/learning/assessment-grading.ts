@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { isUniqueViolation } from "@/db/errors";
 import {
   assessment,
   assessmentAttempt,
@@ -218,12 +219,4 @@ export async function gradeAttempt(
   );
 
   return { evaluationId, outcome, changes, kind: attempt.kind };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const code = (value: unknown) =>
-    typeof value === "object" && value !== null && "code" in value
-      ? (value as { code: unknown }).code
-      : undefined;
-  return code(error) === "23505" || (error instanceof Error && code(error.cause) === "23505");
 }
