@@ -3,29 +3,14 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import {
-  experienceOptions,
-  goalOptions,
-  learningStyleOptions,
-  toneOptions,
-  weeklyHourOptions,
-} from "@/lib/onboarding-options";
+import { learnerFields, optionalText } from "@/lib/learner-fields";
+import { experienceOptions } from "@/lib/onboarding-options";
 import { completeOnboarding } from "@/server/learning/loop";
 import { getTaxonomy } from "@/server/queries/skills";
 import { requireUser } from "@/server/session";
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((value) => value || null)
-    .nullable();
-
 const onboardingSchema = z.object({
-  trackIds: z.array(z.string()).min(1, { error: "Pick at least one track." }).max(6),
-  goals: z.array(z.enum(goalOptions)).max(goalOptions.length),
-  customGoal: optionalText(200),
+  ...learnerFields,
   currentRole: optionalText(120),
   yearsExperience: z
     .number()
@@ -34,12 +19,6 @@ const onboardingSchema = z.object({
   technologiesUsed: z.array(z.string().trim().min(1).max(40)).max(30),
   previousLearning: optionalText(1000),
   existingProjects: optionalText(1000),
-  weeklyLearningHours: z
-    .number()
-    .refine((value) => weeklyHourOptions.some((option) => option.value === value))
-    .nullable(),
-  learningStyle: z.enum(learningStyleOptions).nullable(),
-  mentorTone: z.enum(toneOptions.map((option) => option.value)),
 });
 
 export type OnboardingAnswers = z.input<typeof onboardingSchema>;

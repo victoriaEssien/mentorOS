@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, ChevronLeft, Plus, X } from "lucide-react";
-import { RadioGroup as RadioGroupPrimitive, ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
+import { ChevronLeft, Plus, X } from "lucide-react";
+import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { startTransition, useActionState, useState } from "react";
 
+import { ChoiceGroup, SelectionMark } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { CellMeter } from "@/components/system/cell-meter";
 import { WorkingScreen } from "@/components/system/working-screen";
@@ -406,65 +407,6 @@ function ReviewRow({ term, detail }: { term: string; detail: string }) {
       <dt className="text-footnote font-semibold text-muted-foreground">{term}</dt>
       <dd className="text-callout">{detail}</dd>
     </div>
-  );
-}
-
-/** Single choice as a list of tappable rows (or a two-column grid for short labels). */
-function ChoiceGroup({
-  label,
-  value,
-  onChange,
-  options,
-  columns = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string; detail?: string }[];
-  columns?: boolean;
-}) {
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-footnote font-semibold">{label}</legend>
-      <RadioGroupPrimitive.Root
-        value={value}
-        onValueChange={onChange}
-        className={cn("grid gap-2", columns && "grid-cols-2")}
-      >
-        {options.map((option) => (
-          <RadioGroupPrimitive.Item
-            key={option.value}
-            value={option.value}
-            className="flex pressable items-center gap-3 rounded-lg border border-rule bg-window px-4 py-3 text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[state=checked]:border-foreground"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block text-callout font-semibold">{option.label}</span>
-              {option.detail ? (
-                <span className="mt-0.5 block text-footnote text-muted-foreground">{option.detail}</span>
-              ) : null}
-            </span>
-            <RadioGroupPrimitive.Indicator className="grid size-5.5 shrink-0 place-items-center rounded-full bg-signal text-signal-foreground">
-              <Check className="size-3.5" strokeWidth={3} aria-hidden />
-            </RadioGroupPrimitive.Indicator>
-          </RadioGroupPrimitive.Item>
-        ))}
-      </RadioGroupPrimitive.Root>
-    </fieldset>
-  );
-}
-
-/** Outline at rest, signal-filled when chosen. */
-function SelectionMark({ selected }: { selected: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-6 shrink-0 place-items-center rounded-sm border-[1.5px] transition-colors",
-        selected ? "border-foreground bg-signal text-signal-foreground" : "border-input",
-      )}
-    >
-      {selected ? <Check className="size-4" strokeWidth={3} /> : null}
-    </span>
   );
 }
 

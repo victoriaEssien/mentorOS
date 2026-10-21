@@ -10,6 +10,7 @@ import { ensureDiagnostic } from "./diagnostic";
 import { getMentorThread, hintOnQuestion, replyInThread } from "./mentor-chat";
 import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
+import { updateLearnerSettings, type LearnerSettings } from "./settings";
 import { submitWork, type WorkInput } from "./submissions";
 
 /**
@@ -96,6 +97,20 @@ export async function refreshLearningPath(
   learnerRequest: string | null = null,
 ): Promise<{ pathId: string }> {
   return planPath(userId, learnerRequest);
+}
+
+/**
+ * Changes what the learner told us at onboarding (PRD §8): tracks, goals, weekly time, learning
+ * style, mentor tone. `replan` says their tracks changed while they have a path: the path is
+ * planned from the tracks' skills, so it should be planned again (refreshLearningPath), which the
+ * caller runs after responding.
+ */
+export async function changeSettings(
+  userId: string,
+  changes: Partial<LearnerSettings>,
+): Promise<{ replan: boolean }> {
+  const { tracksChanged } = await updateLearnerSettings(userId, changes);
+  return { replan: tracksChanged && (await hasActivePath(userId)) };
 }
 
 /**
