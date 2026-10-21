@@ -46,10 +46,12 @@ export function CellMeter({
           <span
             key={index}
             aria-hidden
+            // --cell lets a container stagger the cells itself (the landing page's reveals).
             style={
-              animate && on
-                ? ({ animationDelay: `${delay + index * 55}ms` } as React.CSSProperties)
-                : undefined
+              {
+                "--cell": index,
+                ...(animate && on ? { animationDelay: `${delay + index * 55}ms` } : {}),
+              } as React.CSSProperties
             }
             className={cn(
               "h-3 origin-bottom rounded-xs",

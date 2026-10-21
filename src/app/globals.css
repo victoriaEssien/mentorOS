@@ -415,3 +415,118 @@
     animation-delay: 0s !important;
   }
 }
+
+/*
+ * Landing page motion. Each moment plays once: the hero builds on load, and the sections below
+ * reveal as they scroll into view (<Reveal> sets data-reveal="in"). Items opt in with
+ * data-reveal-item="rise|grow|pop" and stagger by --i, spaced by --reveal-gap. Without scripting,
+ * or with reduced motion, nothing is hidden and nothing moves.
+ */
+@keyframes pip-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(3px);
+  }
+  78% {
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0.15);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .hero-build {
+    animation: reveal-grow 520ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+    transform-box: fill-box;
+    transform-origin: bottom;
+  }
+
+  .hero-land {
+    animation: pip-land 760ms var(--ease-out-expo) both;
+    animation-delay: 700ms;
+  }
+
+  .hero-say {
+    animation: reveal-rise 600ms var(--ease-out-expo) both;
+    animation-delay: 1250ms;
+  }
+
+  [data-reveal="out"] [data-reveal-item] {
+    opacity: 0;
+  }
+
+  [data-reveal="in"] [data-reveal-item] {
+    animation: reveal-rise 640ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * var(--reveal-gap, 110ms));
+  }
+
+  [data-reveal="in"] [data-reveal-item="grow"] {
+    animation-name: reveal-grow;
+    transform-origin: bottom;
+  }
+
+  [data-reveal="in"] [data-reveal-item="pop"] {
+    animation-name: reveal-pop;
+  }
+
+  /* A meter fills cell by cell, and journal lines append one at a time, like a log. */
+  [data-reveal="out"] [data-reveal-cells] [role="meter"] > *,
+  [data-reveal="out"] [data-reveal-lines] ol > * {
+    opacity: 0;
+  }
+
+  [data-reveal="in"] [data-reveal-cells] [role="meter"] > * {
+    animation: reveal-grow 480ms var(--ease-out-expo) both;
+    animation-delay: calc(300ms + var(--cell, 0) * 55ms);
+    transform-origin: bottom;
+  }
+
+  [data-reveal="in"] [data-reveal-lines] ol > * {
+    animation: reveal-rise 520ms var(--ease-out-expo) both;
+    animation-delay: calc(700ms + var(--row, 0) * 160ms);
+  }
+}

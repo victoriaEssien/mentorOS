@@ -24,8 +24,13 @@ export type JournalEntry = {
 export function Journal({ entries, className }: { entries: JournalEntry[]; className?: string }) {
   return (
     <ol className={cn("divide-y divide-rule", className)}>
-      {entries.map((entry) => (
-        <li key={entry.id} className="grid grid-cols-[3rem_1fr_auto] items-baseline gap-x-3 py-2.5">
+      {entries.map((entry, index) => (
+        <li
+          key={entry.id}
+          // --row lets a container append the lines one at a time (the landing page's reveals).
+          style={{ "--row": index } as React.CSSProperties}
+          className="grid grid-cols-[3rem_1fr_auto] items-baseline gap-x-3 py-2.5"
+        >
           <span className="font-mono text-caption text-muted-foreground tabular-nums">{entry.when}</span>
           <p className="min-w-0 text-footnote">
             {entry.href ? (
