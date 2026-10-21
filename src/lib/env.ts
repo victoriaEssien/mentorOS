@@ -23,6 +23,7 @@ const serverSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   AI_MODEL_FAST: z.string().min(1),
   AI_MODEL_SMART: z.string().min(1),
+  AI_MODEL_DEEP: z.string().min(1),
 
   // Reading GitHub submissions (optional: raises GitHub's limit from 60 reads an hour)
   GITHUB_TOKEN: z.string().optional(),

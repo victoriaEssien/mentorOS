@@ -42,7 +42,7 @@ src/db                  Drizzle schema (Neon Postgres) and seed taxonomy
 
 | Module                | File                       | Tier  | Output                                      |
 | --------------------- | -------------------------- | ----- | ------------------------------------------- |
-| Assessment Generator  | `assessment-generator.ts`  | smart | `GeneratedAssessment`                       |
+| Assessment Generator  | `assessment-generator.ts`  | deep  | `GeneratedAssessment`                       |
 | Skill Evaluator       | `skill-evaluator.ts`       | smart | `ResponseGrade[]`                           |
 | Learning Planner      | `learning-planner.ts`      | smart | `LearningPlan`                              |
 | Mission Generator     | `mission-generator.ts`     | smart | `GeneratedMission`                          |
@@ -51,7 +51,7 @@ src/db                  Drizzle schema (Neon Postgres) and seed taxonomy
 | Tutor                 | `tutor.ts`                 | fast  | text                                        |
 | Mentor                | `mentor.ts`                | fast  | streamed chat, calls other modules as tools |
 
-Tiers map to `AI_MODEL_FAST` and `AI_MODEL_SMART`. Structured generation uses `generateText` with `Output.object({ schema })` from the AI SDK.
+Tiers map to `AI_MODEL_FAST`, `AI_MODEL_SMART` and `AI_MODEL_DEEP`. Writing assessments gets its own tier because question design decides what the evidence can show: in a side-by-side recheck, the smart-tier model graded, planned and wrote missions as well as the strongest model at a fifth of the price, but wrote weaker questions. Structured generation uses `generateText` with `Output.object({ schema })` from the AI SDK.
 
 ## Data model
 

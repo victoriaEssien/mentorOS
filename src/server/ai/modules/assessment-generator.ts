@@ -88,7 +88,7 @@ export async function generateAssessment(
   const { output, meta } = await generateStructured({
     module: "assessment-generator",
     promptVersion: PROMPT_VERSION,
-    tier: "smart",
+    tier: "deep",
     effort: input.effort,
     instructions: SYSTEM_PROMPT,
     prompt,
