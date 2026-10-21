@@ -18,12 +18,13 @@ type AppMarkProps = {
 };
 
 /**
- * The mark at tab and bookmark sizes, where ten cells and a one-pixel outline blur into a smudge:
- * three solid steps on the same tile, drawn on a 16-unit grid so every edge lands on a whole pixel.
+ * The mark at tab and bookmark sizes, where ten cells blur into a smudge: the same staircase with
+ * three steps (1 + 2 + 3 cells), the top cell still hollow. Drawn on a 16-unit grid so every edge
+ * lands on a whole pixel at 16 and 32 px.
  */
 export function SmallAppMark({ size }: { size: 16 | 32 }) {
   const unit = size / 16;
-  const steps = [4, 7, 10];
+  const cell = 3 * unit;
   return (
     <div
       style={{
@@ -33,16 +34,31 @@ export function SmallAppMark({ size }: { size: 16 | 32 }) {
         alignItems: "flex-end",
         background: SIGNAL,
         borderRadius: 3.5 * unit,
-        // Optically centred: the staircase rises to the right, so it sits half a unit left.
+        // Optically centred: the staircase rises to the right, so it sits half a unit up and left.
         padding: `0 0 ${3 * unit}px ${2 * unit}px`,
         gap: unit,
       }}
     >
-      {steps.map((height) => (
-        <div
-          key={height}
-          style={{ width: 3 * unit, height: height * unit, background: INK, borderRadius: unit * 0.5 }}
-        />
+      {[1, 2, 3].map((count) => (
+        <div key={count} style={{ display: "flex", flexDirection: "column", gap: unit, width: cell }}>
+          {Array.from({ length: count }, (_, index) => {
+            const next = count === 3 && index === 0;
+            return (
+              <div
+                key={index}
+                style={{
+                  width: cell,
+                  height: cell,
+                  boxSizing: "border-box",
+                  // Square at 16 px, where a half-pixel corner only blurs a 3-pixel cell.
+                  borderRadius: unit > 1 ? unit * 0.5 : 0,
+                  background: next ? "transparent" : INK,
+                  border: next ? `${unit}px solid ${INK}` : "none",
+                }}
+              />
+            );
+          })}
+        </div>
       ))}
     </div>
   );
