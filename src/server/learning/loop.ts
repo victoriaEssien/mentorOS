@@ -131,10 +131,20 @@ export async function testSkill(userId: string, skillSlug: string): Promise<{ as
   return checkOnSkill(userId, skillSlug);
 }
 
+const surprisesInFlight = new Map<string, Promise<{ assessmentId: string } | null>>();
+
 /** Today's surprise check, when one is due (PRD §18). Null on most days. */
-export async function surpriseCheck(userId: string): Promise<{ assessmentId: string } | null> {
-  const assessmentId = await surpriseCheckIfDue(userId);
-  return assessmentId ? { assessmentId } : null;
+export function surpriseCheck(userId: string): Promise<{ assessmentId: string } | null> {
+  // Writing one is a model call, and Today asks on every visit: two quick visits on the day one
+  // is due share the same write instead of paying for two.
+  const inFlight = surprisesInFlight.get(userId);
+  if (inFlight) return inFlight;
+
+  const pending = surpriseCheckIfDue(userId)
+    .then((assessmentId) => (assessmentId ? { assessmentId } : null))
+    .finally(() => surprisesInFlight.delete(userId));
+  surprisesInFlight.set(userId, pending);
+  return pending;
 }
 
 /** The learner's mentor thread with its recent messages, started on first visit (PRD §21). */

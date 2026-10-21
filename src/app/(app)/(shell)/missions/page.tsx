@@ -4,11 +4,12 @@ import Link from "next/link";
 
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { AlertCard } from "@/components/system/alert-card";
-import { DifficultyCells } from "@/components/system/difficulty-cells";
+import { MissionCard } from "@/components/system/mission-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { durationLabel, MISSION_STATUS_LABEL, missionTypeLabel } from "@/lib/mission-labels";
-import { getMissionsOverview, type MissionsOverview } from "@/server/queries/missions";
+import { MISSION_STATUS_LABEL, missionTypeLabel } from "@/lib/mission-labels";
+import { OUTCOME_BADGE } from "@/lib/outcomes";
+import { getMissionsOverview } from "@/server/queries/missions";
 import { requireLearner } from "@/server/session";
 
 import { GetMissionPanel } from "./mission-controls";
@@ -17,15 +18,6 @@ export const metadata: Metadata = { title: "Missions" };
 
 // Writing a mission runs a model call inside this route's server action.
 export const maxDuration = 120;
-
-type MissionSummary = NonNullable<MissionsOverview["daily"]>;
-
-const OUTCOME_BADGE = {
-  strong: { label: "Strong", variant: "pass" },
-  pass: { label: "Pass", variant: "pass" },
-  partial: { label: "Partial", variant: "partial" },
-  fail: { label: "Didn't pass", variant: "fail" },
-} as const;
 
 export default async function MissionsPage() {
   const { user } = await requireLearner();
@@ -108,33 +100,5 @@ export default async function MissionsPage() {
         </ScreenSection>
       ) : null}
     </Screen>
-  );
-}
-
-function MissionCard({ mission }: { mission: MissionSummary }) {
-  const duration = durationLabel(mission.estimatedMinutes);
-  return (
-    <Link
-      href={`/missions/${mission.id}`}
-      className="block pressable rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-    >
-      <span className="flex items-center justify-between gap-3">
-        <span className="text-footnote text-muted-foreground">
-          {missionTypeLabel(mission.type)}
-          {duration ? `, ${duration.toLowerCase()}` : ""}
-        </span>
-        <Badge variant={mission.status === "assigned" ? "signal" : "neutral"}>
-          {MISSION_STATUS_LABEL[mission.status]}
-        </Badge>
-      </span>
-      <span className="mt-2 block text-headline">{mission.title}</span>
-      <span className="mt-1 line-clamp-3 block text-callout text-muted-foreground">{mission.objective}</span>
-      {mission.difficulty ? (
-        <span className="mt-3 flex items-center gap-2 text-caption text-muted-foreground">
-          <DifficultyCells level={mission.difficulty} />
-          Difficulty {mission.difficulty} of 5
-        </span>
-      ) : null}
-    </Link>
   );
 }
