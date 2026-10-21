@@ -1,9 +1,9 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { learnerProfile, userTrack } from "@/db/schema";
+import { account, emailSettings, learnerProfile, userTrack } from "@/db/schema";
 
 /**
  * Read-only queries for pages. Writes to learner state go through src/server/learning only.
@@ -22,4 +22,24 @@ export async function getLearnerTrackIds(userId: string): Promise<string[]> {
     .from(userTrack)
     .where(eq(userTrack.userId, userId));
   return rows.map((row) => row.trackId);
+}
+
+/** Whether they can sign in with a password (they may use Google or GitHub only). */
+export async function hasPassword(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
+    .limit(1);
+  return Boolean(row);
+}
+
+/** Which optional emails they get. No row yet means both are on. */
+export async function getEmailSettings(userId: string): Promise<{ weekly: boolean; reminders: boolean }> {
+  const [row] = await db
+    .select({ weekly: emailSettings.weeklyProgress, reminders: emailSettings.reminders })
+    .from(emailSettings)
+    .where(eq(emailSettings.userId, userId))
+    .limit(1);
+  return { weekly: row?.weekly ?? true, reminders: row?.reminders ?? true };
 }

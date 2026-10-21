@@ -19,10 +19,12 @@ import { OUTCOME_BADGE } from "@/lib/outcomes";
 import { nextAction, type NextAction } from "@/lib/today";
 import { cn } from "@/lib/utils";
 import { surpriseCheck } from "@/server/learning/loop";
+import { hasPassword } from "@/server/queries/learner";
 import { getToday, type Today } from "@/server/queries/today";
 import { requireLearner } from "@/server/session";
 
 import { GetMissionPanel } from "../missions/mission-controls";
+import { EmailNotice, type EmailNoticeState } from "./email-notice";
 import { WriteDiagnosticPanel } from "./write-diagnostic";
 
 export const metadata: Metadata = { title: "Today" };
@@ -37,9 +39,13 @@ const ROW =
   "flex pressable items-center justify-between gap-3 py-3.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 /** Today (PRD §26): what to do next, what's in play, and where the learner stands. */
-export default async function TodayPage() {
+export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const { user } = await requireLearner();
-  const [today, cookieStore] = await Promise.all([getToday(user.id), cookies()]);
+  const [today, cookieStore, emailState] = await Promise.all([
+    getToday(user.id),
+    cookies(),
+    emailNoticeState(user, searchParams),
+  ]);
   const timeZone = knownTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
   const { title, date } = greetingFor(user.name, timeZone);
 
@@ -83,6 +89,8 @@ export default async function TodayPage() {
   return (
     <Screen>
       <ScreenHeader title={title} subtitle={date ?? "Here's where you stand."} />
+
+      {emailState ? <EmailNotice state={emailState} email={user.email} /> : null}
 
       <NextCard next={next} />
 
@@ -183,6 +191,21 @@ export default async function TodayPage() {
       <InstallHint />
     </Screen>
   );
+}
+
+/**
+ * What Today says about the address, if anything. The confirm link lands here with
+ * `?email=confirmed`, and Better Auth adds `error` when the link had expired or was damaged.
+ */
+async function emailNoticeState(
+  user: { id: string; emailVerified: boolean },
+  searchParams: PageProps<"/today">["searchParams"],
+): Promise<EmailNoticeState | null> {
+  const { email, error } = await searchParams;
+  if (user.emailVerified) return email === "confirmed" ? "confirmed" : null;
+  if (error) return "link-failed";
+  // Only email sign-ups were sent a link. Google and GitHub vouch for their own addresses.
+  return (await hasPassword(user.id)) ? "unconfirmed" : null;
 }
 
 /** The one thing to do next, as a system alert holding the screen's only primary action. */

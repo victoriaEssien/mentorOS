@@ -28,6 +28,15 @@ const serverSchema = z.object({
   // Reading GitHub submissions (optional: raises GitHub's limit from 60 reads an hour)
   GITHUB_TOKEN: z.string().optional(),
 
+  // Email (Resend). Without a key, emails are printed to the server log instead of sent.
+  RESEND_API_KEY: z.string().optional(),
+  // Who emails come from, on a domain verified in Resend: "mentorOS <no-reply@mail.example.com>"
+  EMAIL_FROM: z.string().optional(),
+  // Development only: deliver every email here instead (e.g. delivered@resend.dev). Unset, they're logged.
+  EMAIL_DEV_REDIRECT: z.string().optional(),
+  // Vercel Cron sends this as a bearer token; the daily job refuses any request without it.
+  CRON_SECRET: z.string().optional(),
+
   // Observability
   SENTRY_DSN: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),

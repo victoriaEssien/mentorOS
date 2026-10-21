@@ -12,3 +12,5 @@ export * from "./assessments";
 export * from "./learning";
 export * from "./evaluations";
 export * from "./mentor";
+export * from "./email";
+export * from "./throttle";

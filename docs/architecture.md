@@ -87,6 +87,15 @@ Slow model work never blocks a screen. It runs in `after()`:
 
 Today picks the single next action in `src/lib/today.ts`: finish the diagnostic, then a surprise check, then today's mission, then an open check, then new work.
 
+## Emails
+
+Everything lives in `src/server/email`. Templates are plain code (no model calls), rendered by `layout.ts` into table HTML and a text version, and sent by `send.ts` through Resend's HTTP API. Outside production nothing reaches a learner: mail goes to `EMAIL_DEV_REDIRECT` or prints to the log.
+
+- **Account emails** (`account-emails.ts`): confirm your email (on email sign-up), reset your password, and "your password was changed". Better Auth's callbacks send them in `after()`, so a reset request takes the same time whether or not the address has an account. They can't be turned off.
+- **Link caps.** Confirm and reset links are capped at three an hour per account in the `throttle` table (`src/server/throttle.ts`). Better Auth's rate limiter only covers its own HTTP routes, not calls from server actions, so this is the cap that holds. Password changes in Settings get five tries per 15 minutes the same way.
+- **Weekly progress and reminders** (`engagement-emails.ts`, `daily.ts`): `/api/cron/daily` runs once a day from Vercel Cron. Weekly progress goes on Mondays to anyone whose work produced evidence that week. A reminder goes to anyone away four days or more, at most weekly, stopping after two go unanswered and for anyone gone a month. Only confirmed addresses, one of these emails per person per day, and at most 80 a run (Resend's free plan sends 100 a day). Each send is claimed in `email_settings` first, and Resend's idempotency key backs that up, so a retried run can't send twice.
+- **Unsubscribe.** Each optional email carries a signed, per-topic link (`src/lib/unsubscribe-token.ts`). People get a page with a button (a mail scanner opening the link can't unsubscribe anyone), and mail apps get the one-click `List-Unsubscribe` POST (RFC 8058) at `/api/email/unsubscribe`. Settings has the same two switches.
+
 ## Data model
 
 | PRD entity                    | Table(s)                                                                     |
@@ -105,6 +114,8 @@ Today picks the single next action in `src/lib/today.ts`: finish the diagnostic,
 | MentorConversation            | `mentor_conversation`, `mentor_message`                                      |
 | Progress                      | derived from `user_skill` and `skill_evidence`, no table                     |
 | Achievement                   | not modelled yet (gamification is out of MVP scope)                          |
+| Email choices                 | `email_settings`                                                             |
+| Rate limits                   | `throttle`                                                                   |
 
 ## Auth
 
@@ -113,6 +124,8 @@ Better Auth with the Drizzle adapter. Email/password is on; GitHub and Google sw
 - Google asks which account to use (`prompt: "select_account"`).
 - A Google or GitHub sign-in never attaches itself to an existing email/password account whose address isn't verified (Better Auth's `requireLocalEmailVerified` default). Otherwise anyone could register someone else's address first and inherit their sign-in. The sign-in page tells that person to use their password instead.
 - OAuth failures come back to `/sign-in?error=<code>`, and `oauthErrorMessage` turns the code into words.
+- Email sign-ups get a confirm link. Nothing waits on it, but weekly progress and reminders only go to confirmed addresses, and Today shows a reminder until it's done.
+- Forgot password: `/forgot-password` sends a link (good for an hour, once) to `/reset-password`. A reset signs out every other device, and so does a change in Settings.
 
 - `src/proxy.ts` is an optimistic cookie check for app routes (Next 16 renamed `middleware` to `proxy`).
 - Pages do the real check with `requireUser()` or `requireLearner()` from `src/server/session.ts`. `requireLearner()` also sends anyone who hasn't finished onboarding to `/onboarding`.
@@ -131,6 +144,6 @@ Cache Components is on (`next.config.ts`). Layouts stay static so the app shell 
 
 ## Not set up yet (on purpose)
 
-- **Background jobs.** `after()` covers the MVP. A queue (the PRD names Inngest) becomes worth it once work has to run without a visit, such as reminders.
+- **Background jobs.** `after()` and one daily Vercel Cron job (emails) cover the MVP. A queue (the PRD names Inngest) becomes worth it when work needs retries or has to run more often than daily.
 - **Code execution / sandboxes.** Post-MVP (PRD §6).
 - **Repository analysis.** Hand-ins read the public GitHub files and gists they link to (`artifacts.ts`), but nothing clones, runs or analyses a whole repository. Post-MVP (PRD §36).

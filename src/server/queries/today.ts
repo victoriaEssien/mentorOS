@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { Route } from "next";
 
 import { db } from "@/db";
@@ -37,8 +37,11 @@ export async function getToday(userId: string) {
 
 export type Today = Awaited<ReturnType<typeof getToday>>;
 
-/** The latest evaluated work, newest first: missions, weekly challenges and assessments alike. */
-async function getRecentResults(userId: string, limit: number) {
+/**
+ * The latest evaluated work, newest first: missions, weekly challenges and assessments alike.
+ * Optionally only what was evaluated since a date (the weekly progress email).
+ */
+export async function getRecentResults(userId: string, limit: number, since?: Date) {
   const rows = await db
     .select({
       id: evaluation.id,
@@ -56,7 +59,7 @@ async function getRecentResults(userId: string, limit: number) {
     .leftJoin(mission, eq(mission.id, missionSubmission.missionId))
     .leftJoin(assessmentAttempt, eq(assessmentAttempt.id, evaluation.attemptId))
     .leftJoin(assessment, eq(assessment.id, assessmentAttempt.assessmentId))
-    .where(eq(evaluation.userId, userId))
+    .where(and(eq(evaluation.userId, userId), since ? gte(evaluation.createdAt, since) : undefined))
     .orderBy(desc(evaluation.createdAt))
     .limit(limit);
 

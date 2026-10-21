@@ -5,18 +5,10 @@ import Link from "next/link";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { CellMeter } from "@/components/system/cell-meter";
 import { cn } from "@/lib/utils";
-import { abilityBand, confidenceBand, type AbilityBand } from "@/server/learning/skill-estimate";
+import { abilityLabel } from "@/lib/skill-labels";
+import { confidenceBand } from "@/server/learning/skill-estimate";
 
 type Estimate = { ability: number; confidence: number; evidenceCount: number };
-
-const BAND_LABEL: Record<AbilityBand, string> = {
-  strong: "Strong",
-  intermediate: "Intermediate",
-  developing: "Developing",
-  beginner: "Beginner",
-};
-
-export const abilityLabel = (ability: number) => BAND_LABEL[abilityBand(ability)];
 
 /** "Low confidence, from 1 answer". The count is what makes the confidence believable. */
 export function confidenceCaption(estimate: Estimate, noun: { one: string; many: string }) {

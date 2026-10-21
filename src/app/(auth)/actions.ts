@@ -83,7 +83,11 @@ export async function signUpAction(_previous: AuthFormState, formData: FormData)
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
 
   try {
-    await auth.api.signUpEmail({ body: parsed.data, headers: await headers() });
+    // The confirmation email's link lands on Today, which says the address is confirmed.
+    await auth.api.signUpEmail({
+      body: { ...parsed.data, callbackURL: "/today?email=confirmed" },
+      headers: await headers(),
+    });
   } catch (error) {
     return { error: describe(error), values };
   }
@@ -130,4 +134,58 @@ export async function socialSignInAction(formData: FormData) {
 export async function signOutAction() {
   await auth.api.signOut({ headers: await headers() });
   redirect("/");
+}
+
+export type ResetRequestState = { sent?: boolean; error?: string; email?: string };
+
+/**
+ * "Forgot password?": asks Better Auth to email a reset link. The answer is the same whether or not
+ * the address has an account, so the form can't be used to find out who has one.
+ */
+export async function requestPasswordResetAction(
+  _previous: ResetRequestState,
+  formData: FormData,
+): Promise<ResetRequestState> {
+  const address = String(formData.get("email") ?? "").trim();
+  const parsed = email.safeParse(address);
+  if (!parsed.success) return { error: "Enter the email you signed up with.", email: address };
+
+  try {
+    await auth.api.requestPasswordReset({
+      body: { email: parsed.data, redirectTo: "/reset-password" },
+      headers: await headers(),
+    });
+  } catch (error) {
+    return { error: describe(error), email: address };
+  }
+  return { sent: true, email: parsed.data };
+}
+
+export type ResetPasswordState = { error?: string; fieldError?: string };
+
+const newPassword = z
+  .string()
+  .min(8, { error: "Use at least 8 characters." })
+  .max(128, { error: "Use 128 characters or fewer." });
+
+/** Sets the new password from a reset link, then sends them to sign in with it. */
+export async function resetPasswordAction(
+  _previous: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> {
+  const parsed = newPassword.safeParse(String(formData.get("password") ?? ""));
+  if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message };
+
+  try {
+    await auth.api.resetPassword({
+      body: { newPassword: parsed.data, token: String(formData.get("token") ?? "") },
+      headers: await headers(),
+    });
+  } catch (error) {
+    if (error instanceof APIError && error.body?.code === "INVALID_TOKEN") {
+      return { error: "This reset link has expired or was already used. Ask for a new one below." };
+    }
+    return { error: describe(error) };
+  }
+  redirect("/sign-in?reset=done");
 }

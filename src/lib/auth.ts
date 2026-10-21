@@ -3,11 +3,19 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { cache } from "react";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/lib/env";
+import {
+  confirmEmail,
+  passwordChangedEmail,
+  resetPasswordEmail,
+  sendLinkEmail,
+} from "@/server/email/account-emails";
+import { sendEmail } from "@/server/email/send";
 
 /**
  * Better Auth server instance.
@@ -25,8 +33,28 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  // Account emails go out after the response (after()): sign-up stays fast, and a reset request
+  // takes the same time whether or not the address has an account, so timing reveals nothing.
   emailAndPassword: {
     enabled: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    // A reset is how someone takes back an account they've lost: every other device is signed out.
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      after(() => sendLinkEmail(user.id, resetPasswordEmail(user, url)));
+    },
+    onPasswordReset: async ({ user }) => {
+      after(() => sendEmail(passwordChangedEmail(user, `${env.BETTER_AUTH_URL}/forgot-password`)));
+    },
+  },
+  // Confirming an address doesn't block anything; Today reminds them until it's done.
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60 * 24,
+    sendVerificationEmail: async ({ user, url }) => {
+      after(() => sendLinkEmail(user.id, confirmEmail(user, url)));
+    },
   },
   socialProviders: {
     ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET

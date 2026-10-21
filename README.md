@@ -21,6 +21,7 @@ Assess → Learn → Practice → Prove → Evaluate → Adapt
 | Database        | PostgreSQL on Neon, Drizzle ORM                               |
 | Auth            | Better Auth (email/password, optional GitHub and Google)      |
 | AI              | Vercel AI SDK with OpenAI, behind `src/server/ai/provider.ts` |
+| Email           | Resend's HTTP API, plus one daily Vercel Cron job             |
 | Validation      | Zod                                                           |
 | Monitoring      | Sentry, PostHog (both no-op until keys are set)               |
 | Tests           | Vitest                                                        |
@@ -49,6 +50,20 @@ BETTER_AUTH_URL=http://localhost:3210 NEXT_PUBLIC_APP_URL=http://localhost:3210 
 1. In Google Cloud, set up the OAuth consent screen (External). While it's in testing, add yourself as a test user.
 2. Create an OAuth client ID of type "Web application". Its authorised redirect URI is your `BETTER_AUTH_URL` plus `/api/auth/callback/google`, for example `http://localhost:3000/api/auth/callback/google`. Add your live domain's too.
 3. Put the client ID and secret in `.env.local` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart `pnpm dev`. "Continue with Google" appears on sign-in and sign-up.
+
+### Email
+
+In development, emails print to the `pnpm dev` log, links included, so confirming and resetting work without sending anything. To send for real:
+
+1. In Resend, add and verify your sending domain.
+2. Set `RESEND_API_KEY` and `EMAIL_FROM` (for example `mentorOS <no-reply@your-domain>`).
+3. Outside production, mail only goes to `EMAIL_DEV_REDIRECT` (`delivered@resend.dev` is Resend's test inbox), never to a learner's address.
+
+The weekly progress email and reminders go out from `/api/cron/daily`, which Vercel Cron calls at 08:00 UTC (`vercel.json`) with `CRON_SECRET` as a bearer token. Set `CRON_SECRET` in Vercel too. Resend's free plan sends 100 emails a day, so a run stops at 80 and leaves room for account emails. To run it by hand:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3210/api/cron/daily
+```
 
 ### Live AI calls cost money
 

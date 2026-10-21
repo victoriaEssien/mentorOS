@@ -3,9 +3,11 @@
 import { ChevronRight } from "lucide-react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { ChoiceGroup, SelectionMark } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
+import { FormNotice } from "@/components/form/form-notice";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -17,10 +19,20 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Switch } from "@/components/ui/switch";
 import { goalOptions, learningStyleOptions, toneOptions, weeklyHourOptions } from "@/lib/onboarding-options";
+import type { EmailTopic } from "@/lib/unsubscribe-token";
 import { cn } from "@/lib/utils";
 
-import { saveNameAction, saveSettingsAction, type SaveState } from "./actions";
+import {
+  changePasswordAction,
+  saveEmailTopicAction,
+  saveNameAction,
+  saveSettingsAction,
+  sendConfirmationAction,
+  type SaveState,
+} from "./actions";
 
 const ROW =
   "flex w-full pressable items-center gap-3 px-4 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
@@ -350,5 +362,158 @@ export function ToneSetting({ tone }: { tone: string }) {
         />
       )}
     </SettingSheet>
+  );
+}
+
+/** Shown only while the address isn't confirmed: a sheet that sends the link again. */
+export function ConfirmEmailSetting({ email }: { email: string }) {
+  return (
+    <SettingSheet
+      label="Confirm email"
+      value="Not confirmed"
+      title="Confirm your email"
+      description={`A link goes to ${email}. Once it's confirmed, you can always get back in with a password reset.`}
+    >
+      {() => <ConfirmEmailForm />}
+    </SettingSheet>
+  );
+}
+
+function ConfirmEmailForm() {
+  const [sent, setSent] = useState(false);
+  const { pending, error, save } = useSave(() => setSent(true));
+  if (sent)
+    return <FormNotice>Sent. Check your inbox, and your spam folder if it isn&apos;t there.</FormNotice>;
+  return (
+    <div className="flex flex-col gap-4">
+      {error ? <FormAlert>{error}</FormAlert> : null}
+      <Button disabled={pending} onClick={() => save(() => sendConfirmationAction())}>
+        {pending ? "Sending" : "Send the link"}
+      </Button>
+    </div>
+  );
+}
+
+/** For accounts with a password (not Google or GitHub only). */
+export function PasswordSetting() {
+  return (
+    <SettingSheet
+      label="Password"
+      value="Change"
+      title="Change your password"
+      description="Saving it signs you out of every other device, and you'll get an email saying it changed."
+    >
+      {(close) => <PasswordForm close={close} />}
+    </SettingSheet>
+  );
+}
+
+function PasswordForm({ close }: { close: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const { pending, error, save } = useSave(() => {
+    close();
+    toast("Password changed. Other devices are signed out.");
+  });
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        save(() => changePasswordAction(current, next));
+      }}
+      className="flex flex-col gap-4"
+    >
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="current-password">Current password</Label>
+        <PasswordInput
+          id="current-password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(event) => setCurrent(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="new-password">New password</Label>
+        <PasswordInput
+          id="new-password"
+          autoComplete="new-password"
+          value={next}
+          onChange={(event) => setNext(event.target.value)}
+          aria-describedby="new-password-hint"
+        />
+        <p id="new-password-hint" className="text-footnote text-muted-foreground">
+          At least 8 characters.
+        </p>
+      </div>
+      {error ? <FormAlert>{error}</FormAlert> : null}
+      <Button type="submit" disabled={pending || !current || next.length < 8}>
+        {pending ? "Saving" : "Change password"}
+      </Button>
+    </form>
+  );
+}
+
+/** The two optional emails, each a switch that saves as it flips. */
+export function EmailSwitches({ weekly, reminders }: { weekly: boolean; reminders: boolean }) {
+  return (
+    <>
+      <EmailSwitch
+        topic="weekly"
+        label="Weekly progress"
+        detail="Mondays: what your work showed, and what's next."
+        on={weekly}
+      />
+      <EmailSwitch
+        topic="reminders"
+        label="Reminders"
+        detail="After four days away. At most one a week, and never more than two in a row."
+        on={reminders}
+      />
+    </>
+  );
+}
+
+function EmailSwitch({
+  topic,
+  label,
+  detail,
+  on,
+}: {
+  topic: EmailTopic;
+  label: string;
+  detail: string;
+  on: boolean;
+}) {
+  const [checked, setChecked] = useState(on);
+  const [error, setError] = useState<string>();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5">
+      <span className="min-w-0 flex-1">
+        <span id={`email-${topic}`} className="block text-body">
+          {label}
+        </span>
+        <span className={cn("block text-footnote", error ? "text-fail" : "text-muted-foreground")}>
+          {error ?? detail}
+        </span>
+      </span>
+      <Switch
+        aria-labelledby={`email-${topic}`}
+        checked={checked}
+        disabled={pending}
+        onCheckedChange={(value) => {
+          setChecked(value);
+          setError(undefined);
+          startTransition(async () => {
+            const result = await saveEmailTopicAction(topic, value);
+            if (result.error) {
+              setChecked(!value);
+              setError(result.error);
+            }
+          });
+        }}
+      />
+    </div>
   );
 }
