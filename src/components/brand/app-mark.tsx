@@ -17,6 +17,37 @@ type AppMarkProps = {
   corner?: number;
 };
 
+/**
+ * The mark at tab and bookmark sizes, where ten cells and a one-pixel outline blur into a smudge:
+ * three solid steps on the same tile, drawn on a 16-unit grid so every edge lands on a whole pixel.
+ */
+export function SmallAppMark({ size }: { size: 16 | 32 }) {
+  const unit = size / 16;
+  const steps = [4, 7, 10];
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "flex-end",
+        background: SIGNAL,
+        borderRadius: 3.5 * unit,
+        // Optically centred: the staircase rises to the right, so it sits half a unit left.
+        padding: `0 0 ${3 * unit}px ${2 * unit}px`,
+        gap: unit,
+      }}
+    >
+      {steps.map((height) => (
+        <div
+          key={height}
+          style={{ width: 3 * unit, height: height * unit, background: INK, borderRadius: unit * 0.5 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function AppMark({ size, inset = 0.18, corner = 0.22 }: AppMarkProps) {
   const inner = size * (1 - inset * 2);
   const cell = inner / 4.66;

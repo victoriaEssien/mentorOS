@@ -1,9 +1,11 @@
 import { ImageResponse } from "next/og";
 
-import { AppMark } from "@/components/brand/app-mark";
+import { AppMark, SmallAppMark } from "@/components/brand/app-mark";
 
 const icons = {
-  "32": { size: 32, inset: 0.14, corner: 0.22 },
+  // Tabs and bookmarks: the simplified mark, at 1x and 2x.
+  "16": { size: 16, small: true },
+  "32": { size: 32, small: true },
   "192": { size: 192, inset: 0.2, corner: 0.22 },
   "512": { size: 512, inset: 0.2, corner: 0.22 },
   // Full-bleed with the bars inside the circular safe zone, for Android adaptive icons.
@@ -22,8 +24,11 @@ export function generateImageMetadata() {
 
 export default async function Icon({ id }: { id: Promise<string> }) {
   const spec = icons[(await id) as IconId] ?? icons["32"];
-  return new ImageResponse(<AppMark size={spec.size} inset={spec.inset} corner={spec.corner} />, {
-    width: spec.size,
-    height: spec.size,
-  });
+  const mark =
+    "small" in spec ? (
+      <SmallAppMark size={spec.size} />
+    ) : (
+      <AppMark size={spec.size} inset={spec.inset} corner={spec.corner} />
+    );
+  return new ImageResponse(mark, { width: spec.size, height: spec.size });
 }
