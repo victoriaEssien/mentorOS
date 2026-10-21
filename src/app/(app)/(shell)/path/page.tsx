@@ -1,11 +1,11 @@
-import { Check, ChevronRight, ClipboardList, Lock, Route as RouteIcon } from "lucide-react";
+import { Check, ChevronRight, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Pip } from "@/components/brand/pip";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
-import { AlertCard } from "@/components/system/alert-card";
-import { CellMeter } from "@/components/system/cell-meter";
+import { PipPanel } from "@/components/system/pip-panel";
 import { SkillRow } from "@/components/system/skill-row";
 import { abilityLabel } from "@/lib/skill-labels";
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,9 @@ export default async function LearningPathPage() {
       <Screen>
         <ScreenHeader title="Path" subtitle="What to work on next, and why." />
         {openDiagnosticId ? (
-          <AlertCard
-            icon={<ClipboardList aria-hidden />}
+          <PipPanel
             title="Your path starts with the diagnostic"
-            actions={
+            action={
               <Button asChild>
                 <Link transitionTypes={NAV_FORWARD} href={`/assessments/${openDiagnosticId}`}>
                   Continue the diagnostic
@@ -49,34 +48,20 @@ export default async function LearningPathPage() {
           >
             I plan from evidence, not from what anyone says they know. Finish the diagnostic and your first
             path follows.
-          </AlertCard>
+          </PipPanel>
         ) : overview.firstPathOnItsWay ? (
-          <div role="status" className="rounded-lg border border-rule bg-window p-5 shadow-window">
+          <PipPanel mood="thinking" title="Planning your path" status>
             <PlanningPoller />
-            <CellMeter
-              value={1}
-              label="Planning your path"
-              animate
-              className="[&>span]:h-3 [&>span]:[animation-direction:alternate] [&>span]:[animation-iteration-count:infinite]"
-            />
-            <p className="mt-5 text-headline">Planning your path</p>
-            <p className="mt-1 text-callout text-muted-foreground">
-              I&apos;m working out what comes first from your diagnostic. This takes about half a minute.
-            </p>
-          </div>
+            I&apos;m working out what comes first from your diagnostic. This takes about half a minute.
+          </PipPanel>
         ) : (
-          <AlertCard icon={<RouteIcon aria-hidden />} title="No path yet" tone="neutral">
-            <span className="mb-4 block">
-              I&apos;ll plan one from the evidence I have. It takes about half a minute.
-            </span>
-            <PlanPathButton />
-          </AlertCard>
+          <PipPanel mood="asleep" title="No path yet" action={<PlanPathButton />}>
+            I&apos;ll plan one from the evidence I have. It takes about half a minute.
+          </PipPanel>
         )}
       </Screen>
     );
   }
-
-  const next = steps.filter((step) => step !== current);
 
   return (
     <Screen>
@@ -87,19 +72,18 @@ export default async function LearningPathPage() {
 
       <p className="text-body">{active.focusSummary}</p>
 
-      {current ? (
-        <ScreenSection title="Now" className="mt-6">
-          <FocusCard step={current} number={steps.indexOf(current) + 1} />
-        </ScreenSection>
-      ) : null}
-
-      {next.length > 0 ? (
-        <ScreenSection title="Next">
-          <ol className="divide-y divide-rule border-y border-rule">
-            {next.map((step) => (
-              <li key={step.id}>
-                <StepRow step={step} number={steps.indexOf(step) + 1} />
-              </li>
+      {steps.length > 0 ? (
+        <ScreenSection title="Steps" className="mt-6">
+          <ol className="rounded-xl bg-raised bg-dots p-4">
+            {steps.map((step, index) => (
+              <TimelineStep
+                key={step.id}
+                step={step}
+                number={index + 1}
+                current={step === current}
+                before={steps[index - 1]}
+                last={index === steps.length - 1}
+              />
             ))}
           </ol>
         </ScreenSection>
@@ -164,19 +148,81 @@ export default async function LearningPathPage() {
   );
 }
 
-/** The current focus: the one thing to work on now, with its skill and its reason. */
-function FocusCard({ step, number }: { step: Step; number: number }) {
+/**
+ * One step on the timeline: its cell, the line to the steps around it (solid where the learner
+ * has been, dashed ahead), and what it is and why. The current step is a window Pip stands on.
+ */
+function TimelineStep({
+  step,
+  number,
+  current,
+  before,
+  last,
+}: {
+  step: Step;
+  number: number;
+  current: boolean;
+  before: Step | undefined;
+  last: boolean;
+}) {
+  // Room above the current step for Pip to stand on its window, even when it is the first step.
+  const lead = current ? "h-12" : before ? "h-5" : "h-0";
+
   return (
-    <div className="rounded-lg border border-rule bg-window p-5 shadow-window">
-      <div className="flex gap-3.5">
-        <StepMarker status="current" number={number} />
-        <div className="min-w-0 flex-1">
-          <h3 className="text-headline">{step.title}</h3>
-          <p className="mt-1.5 text-callout text-muted-foreground">{step.reason}</p>
-        </div>
+    <li className="flex gap-3.5">
+      <div aria-hidden className="flex w-11 shrink-0 flex-col items-center">
+        <Connector traveled={before?.status === "completed"} className={cn(lead, !before && "invisible")} />
+        <StepCell status={step.status} number={number} />
+        {last ? null : <Connector traveled={step.status === "completed"} className="min-h-0 flex-1" />}
       </div>
+      <div className={cn("min-w-0 flex-1", current ? "pt-12" : before && "pt-5")}>
+        {current ? <CurrentStep step={step} /> : <StepText step={step} />}
+      </div>
+    </li>
+  );
+}
+
+function Connector({ traveled, className }: { traveled: boolean; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "w-1 rounded-full",
+        traveled
+          ? "bg-foreground"
+          : "bg-[linear-gradient(var(--color-rule-strong)_55%,transparent_55%)] bg-size-[4px_9px]",
+        className,
+      )}
+    />
+  );
+}
+
+/** A step's place in the path as a cell: ink with a check for done, signal yellow for now, hollow for later. */
+function StepCell({ status, number }: { status: Step["status"]; number: number }) {
+  return (
+    <span
+      className={cn(
+        "grid size-11 shrink-0 place-items-center rounded-md font-mono text-callout font-semibold",
+        status === "current" &&
+          "border-2 border-foreground bg-signal text-signal-foreground shadow-[0_3px_0_var(--color-foreground)]",
+        status === "completed" && "bg-foreground text-signal",
+        status === "upcoming" && "border-2 border-rule-strong bg-window text-muted-foreground",
+      )}
+    >
+      {status === "completed" ? <Check className="size-5" strokeWidth={3} /> : number}
+    </span>
+  );
+}
+
+/** The current focus: the one thing to work on now, with its reason and its skill. */
+function CurrentStep({ step }: { step: Step }) {
+  return (
+    <div className="relative rounded-lg border-2 border-foreground bg-window p-4 shadow-window dark:border-rule-strong">
+      <Pip size={48} label="Pip, on your current step" className="absolute -top-10.5 right-3" />
+      <p className="text-caption font-semibold text-muted-foreground">You&apos;re here</p>
+      <h3 className="mt-0.5 text-headline">{step.title}</h3>
+      <p className="mt-1.5 text-callout text-muted-foreground">{step.reason}</p>
       {step.skill ? (
-        <div className="mt-4 border-t border-rule">
+        <div className="mt-3 border-t border-rule">
           <SkillRow
             name={step.skill.name}
             estimate={step.estimate}
@@ -188,24 +234,19 @@ function FocusCard({ step, number }: { step: Step; number: number }) {
   );
 }
 
-function StepRow({ step, number }: { step: Step; number: number }) {
+function StepText({ step }: { step: Step }) {
   const body = (
     <>
-      <StepMarker status={step.status} number={number} />
-      <span className="min-w-0 flex-1">
-        <span className={cn("block text-headline", step.status === "completed" && "text-muted-foreground")}>
-          {step.title}
-        </span>
-        <span className="mt-1 block text-callout text-muted-foreground">{step.reason}</span>
-        {step.skill ? (
-          <span className="mt-2 block text-footnote text-muted-foreground">
-            {step.skill.name}:{" "}
-            {step.estimate ? abilityLabel(step.estimate.ability).toLowerCase() : "not measured yet"}
-          </span>
-        ) : null}
+      <span className={cn("block text-headline", step.status === "completed" && "text-muted-foreground")}>
+        {step.title}
       </span>
+      <span className="mt-1 block text-callout text-muted-foreground">{step.reason}</span>
       {step.skill ? (
-        <ChevronRight aria-hidden className="mt-1 size-4.5 shrink-0 text-muted-foreground" />
+        <span className="mt-1.5 flex items-center gap-0.5 text-footnote text-muted-foreground">
+          {step.skill.name}:{" "}
+          {step.estimate ? abilityLabel(step.estimate.ability).toLowerCase() : "not measured yet"}
+          <ChevronRight aria-hidden className="size-4" />
+        </span>
       ) : null}
     </>
   );
@@ -214,29 +255,12 @@ function StepRow({ step, number }: { step: Step; number: number }) {
     <Link
       transitionTypes={NAV_FORWARD}
       href={`/profile/skills/${step.skill.slug}`}
-      className="flex pressable gap-3.5 py-4 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="block pressable rounded-sm pt-2.5 pb-1 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {body}
     </Link>
   ) : (
-    <div className="flex gap-3.5 py-4">{body}</div>
-  );
-}
-
-/** A step's place in the path as a cell: signal yellow for now, ink for done, hollow for later. */
-function StepMarker({ status, number }: { status: Step["status"]; number: number }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-7 shrink-0 place-items-center rounded-sm font-mono text-footnote font-semibold",
-        status === "current" && "bg-signal text-signal-foreground",
-        status === "completed" && "bg-foreground text-background",
-        status === "upcoming" && "border border-rule-strong",
-      )}
-    >
-      {status === "completed" ? <Check className="size-4" /> : number}
-    </span>
+    <div className="pt-2.5 pb-1">{body}</div>
   );
 }
 

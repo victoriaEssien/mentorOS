@@ -1,4 +1,3 @@
-import { ClipboardList, Flag, Route as RouteIcon, Zap } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -7,18 +6,21 @@ import { after } from "next/server";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { InstallHint } from "@/components/shell/install-hint";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
-import { AlertCard } from "@/components/system/alert-card";
 import { MissionCard, type MissionSummary } from "@/components/system/mission-card";
+import { NextWindow } from "@/components/system/next-window";
 import { SkillRow } from "@/components/system/skill-row";
+import { StaircaseMeter } from "@/components/system/staircase-meter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
 import { greetingFor, knownTimeZone, shortDate, TIME_ZONE_COOKIE } from "@/lib/local-time";
 import { durationLabel, missionTypeLabel } from "@/lib/mission-labels";
 import { OUTCOME_BADGE } from "@/lib/outcomes";
+import { abilityLabel } from "@/lib/skill-labels";
 import { nextAction, type NextAction } from "@/lib/today";
 import { cn } from "@/lib/utils";
 import { surpriseCheck } from "@/server/learning/loop";
+import { confidenceBand } from "@/server/learning/skill-estimate";
 import { hasPassword } from "@/server/queries/learner";
 import { getToday, type Today } from "@/server/queries/today";
 import { requireLearner } from "@/server/session";
@@ -98,16 +100,30 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
         <ScreenSection title="Focus">
           <Link
             href="/path"
-            className="block pressable rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex pressable items-center gap-4 rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="text-footnote text-muted-foreground">
-              {current.skill ? `${current.skill.name}, ` : ""}step {steps.indexOf(current) + 1} of{" "}
-              {steps.length}
+            <span className="min-w-0 flex-1">
+              <span className="text-footnote text-muted-foreground">
+                {current.skill ? `${current.skill.name}, ` : ""}step {steps.indexOf(current) + 1} of{" "}
+                {steps.length}
+              </span>
+              <span className="mt-1 block text-headline">{current.title}</span>
+              <span className="mt-1 line-clamp-3 text-callout text-muted-foreground">{current.reason}</span>
+              {current.skill && current.estimate ? (
+                <span className="mt-2 block text-caption text-muted-foreground">
+                  {abilityLabel(current.estimate.ability)}, {Math.round(current.estimate.ability * 10)} of 10
+                  cells
+                </span>
+              ) : null}
             </span>
-            <span className="mt-1 block text-headline">{current.title}</span>
-            <span className="mt-1 line-clamp-3 block text-callout text-muted-foreground">
-              {current.reason}
-            </span>
+            {current.skill ? (
+              <StaircaseMeter
+                value={current.estimate?.ability ?? 0}
+                confidence={current.estimate ? confidenceBand(current.estimate.confidence) : "low"}
+                label={`${current.skill.name}: ${current.estimate ? abilityLabel(current.estimate.ability).toLowerCase() : "not measured yet"}`}
+                cell={14}
+              />
+            ) : null}
           </Link>
         </ScreenSection>
       ) : null}
@@ -208,13 +224,14 @@ async function emailNoticeState(
   return (await hasPassword(user.id)) ? "unconfirmed" : null;
 }
 
-/** The one thing to do next, as a system alert holding the screen's only primary action. */
+/** The one thing to do next, as a window with Pip saying why, holding the screen's only primary action. */
 function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }) {
   switch (next.kind) {
     case "diagnostic":
       return (
-        <AlertCard
-          icon={<ClipboardList aria-hidden />}
+        <NextWindow
+          process="diagnostic"
+          says="Your path and missions start from your answers. They save as you go."
           title="Finish your diagnostic"
           actions={
             <Button asChild>
@@ -223,46 +240,45 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
               </Link>
             </Button>
           }
-        >
-          Your path and missions start from your answers. They save as you go.
-        </AlertCard>
+        />
       );
 
     case "path-on-its-way":
       return (
-        <AlertCard
-          icon={<RouteIcon aria-hidden />}
+        <NextWindow
+          process="path/plan"
           tone="neutral"
+          mood="thinking"
+          says="I'm choosing what you work on first from your diagnostic. It takes about half a minute."
           title="Your path is on its way"
           actions={
             <Button asChild variant="secondary">
               <Link href="/path">See your path</Link>
             </Button>
           }
-        >
-          I&apos;m choosing what you work on first from your diagnostic. It takes about half a minute.
-        </AlertCard>
+        />
       );
 
     case "plan-path":
       return (
-        <AlertCard
-          icon={<RouteIcon aria-hidden />}
+        <NextWindow
+          process="path/plan"
+          says="Missions come from your path's current focus, so the path comes first."
           title="Plan your path"
           actions={
             <Button asChild>
               <Link href="/path">Go to your path</Link>
             </Button>
           }
-        >
-          Missions come from your path&apos;s current focus, so the path comes first.
-        </AlertCard>
+        />
       );
 
     case "surprise":
       return (
-        <AlertCard
-          icon={<Zap aria-hidden />}
+        <NextWindow
+          process="check/surprise"
+          mood="alert"
+          says="A few quick questions on something you learned a while ago. No warning, on purpose, so it shows what has stuck."
           title="Surprise check"
           actions={
             <Button asChild>
@@ -271,15 +287,13 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
               </Link>
             </Button>
           }
-        >
-          A few quick questions on something you learned a while ago. No warning, on purpose, so it shows what
-          has stuck.
-        </AlertCard>
+        />
       );
 
     case "mission": {
       const { mission } = next;
       const duration = durationLabel(mission.estimatedMinutes);
+      const grading = mission.status === "submitted";
       const action =
         mission.status === "assigned"
           ? "Start today's mission"
@@ -287,33 +301,31 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
             ? "Continue today's mission"
             : "Open the mission";
       return (
-        <AlertCard
-          icon={<Flag aria-hidden />}
-          tone={mission.status === "submitted" ? "neutral" : "signal"}
+        <NextWindow
+          process={`mission/${mission.cadence}`}
+          tone={grading ? "neutral" : "signal"}
+          mood={grading ? "thinking" : "idle"}
+          says={grading ? "Handed in. I'm grading it against the rubric now." : mission.reason}
           title={mission.title}
+          meta={`${missionTypeLabel(mission.type)}${duration ? `, ${duration.toLowerCase()}` : ""}`}
           actions={
-            <Button asChild variant={mission.status === "submitted" ? "secondary" : "default"}>
+            <Button asChild variant={grading ? "secondary" : "default"}>
               <Link transitionTypes={NAV_FORWARD} href={`/missions/${mission.id}`}>
                 {action}
               </Link>
             </Button>
           }
-        >
-          <span className="block">
-            {mission.status === "submitted" ? "Handed in. " : ""}
-            {missionTypeLabel(mission.type)}
-            {duration ? `, ${duration.toLowerCase()}` : ""}.
-          </span>
-          <span className="mt-1 line-clamp-2 block">{mission.objective}</span>
-        </AlertCard>
+        />
       );
     }
 
     case "check":
       return (
-        <AlertCard
-          icon={<ClipboardList aria-hidden />}
+        <NextWindow
+          process={next.assessment.kind === "reassessment" ? "check/reassess" : "check/knowledge"}
+          says="Your answers so far are saved. Pick up where you stopped."
           title={`Your ${ASSESSMENT_KIND_LABEL[next.assessment.kind].toLowerCase()} is waiting`}
+          meta={next.assessment.title}
           actions={
             <Button asChild>
               <Link transitionTypes={NAV_FORWARD} href={`/assessments/${next.assessment.id}`}>
@@ -321,9 +333,7 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
               </Link>
             </Button>
           }
-        >
-          {next.assessment.title}. Answers save as you go.
-        </AlertCard>
+        />
       );
 
     case "write-diagnostic":

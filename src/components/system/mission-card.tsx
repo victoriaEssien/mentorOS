@@ -27,7 +27,7 @@ export function MissionCard({ mission }: { mission: MissionSummary }) {
         </Badge>
       </span>
       <span className="mt-2 block text-headline">{mission.title}</span>
-      <span className="mt-1 line-clamp-3 block text-callout text-muted-foreground">{mission.objective}</span>
+      <span className="mt-1 line-clamp-3 text-callout text-muted-foreground">{mission.objective}</span>
       {mission.difficulty ? (
         <span className="mt-3 flex items-center gap-2 text-caption text-muted-foreground">
           <DifficultyCells level={mission.difficulty} />

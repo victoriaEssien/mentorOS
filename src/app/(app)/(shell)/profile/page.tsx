@@ -1,15 +1,18 @@
-import { ChevronRight, ClipboardList, Settings } from "lucide-react";
+import { ChevronRight, Settings } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
 
+import { Pip } from "@/components/brand/pip";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
-import { AlertCard } from "@/components/system/alert-card";
+import { PipPanel } from "@/components/system/pip-panel";
 import { SkillRow } from "@/components/system/skill-row";
 import { Button } from "@/components/ui/button";
+import { abilityLabel } from "@/lib/skill-labels";
 import { getOpenDiagnosticId } from "@/server/learning/diagnostic";
 import { getSkillProfile, type SkillProfile } from "@/server/queries/profile";
+import { getRecentResults } from "@/server/queries/today";
 import { requireLearner } from "@/server/session";
 
 import { TrackTabs } from "./track-tabs";
@@ -18,12 +21,17 @@ export const metadata: Metadata = { title: "Skill profile" };
 
 export default async function SkillProfilePage() {
   const { user } = await requireLearner();
-  const [profile, openDiagnosticId] = await Promise.all([
+  const [profile, openDiagnosticId, week] = await Promise.all([
     getSkillProfile(user.id),
     getOpenDiagnosticId(user.id),
+    getRecentResults(user.id, 50, weekAgo()),
   ]);
 
   const panels = profile.map((track) => <TrackPanel key={track.id} track={track} />);
+  const strongest = profile
+    .flatMap((track) => track.groups.flatMap((group) => group.skills))
+    .flatMap((skill) => (skill.estimate ? [{ name: skill.name, ability: skill.estimate.ability }] : []))
+    .sort((a, b) => b.ability - a.ability)[0];
 
   return (
     <Screen>
@@ -40,11 +48,10 @@ export default async function SkillProfilePage() {
       />
 
       {openDiagnosticId ? (
-        <AlertCard
-          icon={<ClipboardList aria-hidden />}
+        <PipPanel
           title="Your diagnostic is waiting"
           className="mb-8"
-          actions={
+          action={
             <Button asChild>
               <Link transitionTypes={NAV_FORWARD} href={`/assessments/${openDiagnosticId}`}>
                 Continue the diagnostic
@@ -53,8 +60,10 @@ export default async function SkillProfilePage() {
           }
         >
           Until I&apos;ve seen your answers, every estimate here is empty. Answers save as you go.
-        </AlertCard>
-      ) : null}
+        </PipPanel>
+      ) : (
+        <WeekSummary outcomes={week.map((result) => result.outcome)} strongest={strongest} />
+      )}
 
       {profile.length > 1 ? <TrackTabs tracks={profile} panels={panels} /> : panels}
 
@@ -74,6 +83,45 @@ export default async function SkillProfilePage() {
         </Link>
       </ScreenSection>
     </Screen>
+  );
+}
+
+/** The start of the past seven days, for the week's summary. */
+function weekAgo() {
+  return new Date(Date.now() - 7 * 86_400_000);
+}
+
+/**
+ * The week in one window: how the work went, with Pip reacting to it, and the strongest skill so
+ * far. Counts only, so there's nothing here to argue with.
+ */
+function WeekSummary({
+  outcomes,
+  strongest,
+}: {
+  outcomes: ("strong" | "pass" | "partial" | "fail")[];
+  strongest: { name: string; ability: number } | undefined;
+}) {
+  const passed = outcomes.filter((outcome) => outcome === "strong" || outcome === "pass").length;
+  const notYet = outcomes.length - passed;
+  const mood = outcomes.length === 0 ? "asleep" : passed >= notYet ? "pass" : "notYet";
+  const title =
+    outcomes.length === 0
+      ? "Nothing new this week"
+      : `${[passed > 0 && `${passed} passed`, notYet > 0 && `${notYet} not yet`].filter(Boolean).join(", ")} this week`;
+
+  return (
+    <div className="mb-8 flex items-center gap-4 rounded-lg border-2 border-foreground bg-window p-4 shadow-[0_4px_0_var(--color-foreground)] dark:border-rule-strong dark:shadow-window">
+      <Pip mood={mood} size={60} />
+      <div className="min-w-0">
+        <p className="text-headline">{title}</p>
+        <p className="mt-0.5 text-footnote text-muted-foreground">
+          {strongest
+            ? `Strongest so far: ${strongest.name}, ${abilityLabel(strongest.ability).toLowerCase()}.`
+            : "Your first results will show up here."}
+        </p>
+      </div>
+    </div>
   );
 }
 

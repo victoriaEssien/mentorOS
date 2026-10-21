@@ -4,6 +4,7 @@ import { ChevronLeft, Plus, X } from "lucide-react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { startTransition, useActionState, useState } from "react";
 
+import { PipSays } from "@/components/brand/pip";
 import { ChoiceGroup, SelectionMark } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { CellMeter } from "@/components/system/cell-meter";
@@ -140,6 +141,10 @@ function StepTitle({ title, detail }: { title: string; detail: string }) {
 function TracksStep({ tracks, answers, update }: StepProps & { tracks: Track[] }) {
   return (
     <>
+      <PipSays className="mb-6">
+        Hi, I&apos;m Pip, your mentor. Tell me a little about you. Then a diagnostic shows me what you can
+        really do, and we start from there.
+      </PipSays>
       <StepTitle
         title="What do you want to get better at?"
         detail="Pick one or more. Missions can combine them later."

@@ -102,6 +102,47 @@
     }
   }
 
+  /* Pip: blinks like a cursor while it waits, pulses its cells while it thinks, hops on a pass. */
+  --animate-pip-blink: pip-blink 4.5s ease-in-out infinite;
+  --animate-pip-think: pip-think 1.2s ease-in-out infinite;
+  --animate-pip-hop: pip-hop 760ms var(--ease-out-expo) both;
+
+  @keyframes pip-blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    96% {
+      transform: scaleY(0.12);
+    }
+  }
+
+  @keyframes pip-think {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pip-hop {
+    0% {
+      transform: translateY(12px);
+    }
+    40% {
+      transform: translateY(-12px);
+    }
+    70% {
+      transform: translateY(2px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
   --shadow-window: 0 1px 2px rgb(22 24 28 / 0.06), 0 8px 24px -12px rgb(22 24 28 / 0.18);
   --shadow-dock: 0 -1px 0 var(--border), 0 -12px 32px -16px rgb(22 24 28 / 0.18);
   --shadow-sheet: 0 -16px 48px -12px rgb(22 24 28 / 0.28);
@@ -201,6 +242,12 @@
 }
 
 /* Low-confidence evidence: the cell is filled, but hatched rather than solid. */
+/* The grid paper under the path's steps. */
+@utility bg-dots {
+  background-image: radial-gradient(var(--rule-strong) 1.1px, transparent 1.1px);
+  background-size: 18px 18px;
+}
+
 @utility bg-hatch {
   background-image: repeating-linear-gradient(-45deg, currentColor 0 1.5px, transparent 1.5px 4.5px);
 }

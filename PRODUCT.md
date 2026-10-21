@@ -42,6 +42,8 @@ Not "AI teaches me programming" but "AI manages my technical apprenticeship". Co
 ## Brand Commitments
 
 - Name: **mentorOS** (lowercase "mentor", uppercase "OS").
+- Mark: a staircase of cells (1 + 2 + 3 + 4) on a signal-yellow tile, the top cell hollow: the next one to earn. Never plain bars, at any size; bars read as a network icon.
+- Mascot: **Pip**, that hollow cell come alive (`src/components/brand/pip.tsx`). Pip appears where the mentor speaks (why a mission was chosen, a verdict, the chat), at most once per screen, and its mood follows what the app is doing: waiting, thinking, pass, not yet, a surprise check, asleep. Never decoration, and never a softer verdict than the evidence gives.
 - Voice adapts; standards don't. The default is a direct, fair coach: honest, specific, no empty praise, explains why. Each learner can choose how the mentor talks to them (more direct or more encouraging), and the system shifts delivery with performance, steadier support after repeated struggle and more push when someone is coasting. Scores, verdicts and "not yet" decisions never soften to match the tone.
 
 ## Evidence on Hand

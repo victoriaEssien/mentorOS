@@ -1,6 +1,7 @@
 import { LockKeyhole, Timer } from "lucide-react";
 import Link from "next/link";
 
+import { Pip } from "@/components/brand/pip";
 import { Wordmark } from "@/components/brand/wordmark";
 import { AlertCard } from "@/components/system/alert-card";
 import { CellMeter, type Confidence } from "@/components/system/cell-meter";
@@ -102,7 +103,8 @@ function Hero() {
         aria-label="Example: a learner's skills, and the mentor declining to move on yet"
         className="relative lg:col-span-6 lg:pl-6"
       >
-        <div className="animate-rise rounded-lg border border-rule bg-window p-5 pb-12 shadow-window">
+        <div className="relative mt-10 animate-rise rounded-lg border border-rule bg-window p-5 pb-12 shadow-window lg:mt-0">
+          <Pip size={64} label="Pip, the mentor" className="absolute -top-14 right-20" />
           <div className="mb-4 flex items-center justify-between">
             <p className="text-headline">Skills</p>
             <Badge>Example</Badge>

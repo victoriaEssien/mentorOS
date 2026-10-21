@@ -29,6 +29,7 @@ export async function getMissionsOverview(userId: string) {
         status: mission.status,
         title: mission.title,
         objective: mission.objective,
+        reason: mission.reason,
         estimatedMinutes: mission.estimatedMinutes,
         difficulty: mission.difficulty,
         createdAt: mission.createdAt,

@@ -3,12 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PipSays } from "@/components/brand/pip";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { DifficultyCells } from "@/components/system/difficulty-cells";
 import { RichText } from "@/components/system/rich-text";
 import { SkillRow } from "@/components/system/skill-row";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   durationLabel,
@@ -16,6 +16,7 @@ import {
   MISSION_STATUS_LABEL,
   missionTypeLabel,
 } from "@/lib/mission-labels";
+import { cn } from "@/lib/utils";
 import { getMissionDetail } from "@/server/queries/missions";
 import { requireLearner } from "@/server/session";
 
@@ -33,6 +34,9 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
 
   const duration = durationLabel(mission.estimatedMinutes);
   const steps = instructionSteps(mission.instructions);
+  // Work still to do keeps its actions in the bar pinned above the dock; finished work shows its
+  // outcome in the window.
+  const open = mission.status === "assigned" || mission.status === "in_progress";
 
   return (
     <Screen>
@@ -42,28 +46,41 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
         back={{ href: "/missions", label: "Missions" }}
       />
 
-      <div className="rounded-lg border border-rule bg-window p-5 shadow-window">
-        <div className="flex items-center justify-between gap-3">
+      <section
+        aria-label="Mission"
+        className="overflow-hidden rounded-lg border-2 border-foreground bg-window shadow-[0_4px_0_var(--color-foreground)] dark:border-rule-strong dark:shadow-window"
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between gap-3 border-b-2 border-foreground px-4 py-1.5 text-caption font-semibold dark:border-rule-strong",
+            open ? "bg-signal text-signal-foreground" : "bg-raised",
+          )}
+        >
+          <span>{MISSION_STATUS_LABEL[mission.status]}</span>
+          <span className="font-mono font-medium">mission/{mission.cadence}</span>
+        </div>
+        <div className="p-5">
           {mission.difficulty ? (
             <span className="flex items-center gap-2 text-footnote text-muted-foreground">
               <DifficultyCells level={mission.difficulty} />
               Difficulty {mission.difficulty} of 5
             </span>
-          ) : (
-            <span />
+          ) : null}
+          <p className={cn("text-body", mission.difficulty && "mt-3")}>{mission.objective}</p>
+          {open ? null : (
+            <div className="mt-5">
+              <PrimaryAction
+                missionId={mission.id}
+                status={mission.status}
+                hasEvaluation={Boolean(evaluation)}
+              />
+            </div>
           )}
-          <Badge variant={mission.status === "assigned" ? "signal" : "neutral"}>
-            {MISSION_STATUS_LABEL[mission.status]}
-          </Badge>
         </div>
-        <p className="mt-4 text-body">{mission.objective}</p>
-        <div className="mt-5">
-          <PrimaryAction missionId={mission.id} status={mission.status} hasEvaluation={Boolean(evaluation)} />
-        </div>
-      </div>
+      </section>
 
       <ScreenSection title="Why this, now">
-        <p className="text-callout text-muted-foreground">{mission.reason}</p>
+        <PipSays mood={mission.status === "submitted" ? "thinking" : "idle"}>{mission.reason}</PipSays>
       </ScreenSection>
 
       {mission.requiredKnowledge.length > 0 ? (
@@ -163,10 +180,11 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
         </ScreenSection>
       ) : null}
 
-      {mission.status === "assigned" || mission.status === "in_progress" ? (
-        <ScreenSection>
+      {open ? (
+        // Stays in reach above the dock while the steps scroll past.
+        <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-10 -mx-4 mt-8 bg-linear-to-t from-desk from-60% to-transparent px-4 pt-6 pb-2 sm:-mx-6 sm:px-6 lg:bottom-0 lg:-mx-10 lg:px-10 lg:pb-6">
           <PrimaryAction missionId={mission.id} status={mission.status} hasEvaluation={false} />
-        </ScreenSection>
+        </div>
       ) : null}
     </Screen>
   );

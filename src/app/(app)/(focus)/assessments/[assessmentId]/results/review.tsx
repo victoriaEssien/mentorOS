@@ -29,6 +29,16 @@ const OUTCOME_BADGE = {
   blank: { label: "No answer", variant: "neutral", icon: Minus },
 } as const;
 
+/** How many answers were right and partly right, for the verdict above the strip. */
+export function tallyAnswers(answers: Answer[]) {
+  const outcomes = answers.map((answer) => outcomeOf(answer.grade));
+  return {
+    right: outcomes.filter((o) => o === "right").length,
+    partly: outcomes.filter((o) => o === "partly").length,
+    total: outcomes.length,
+  };
+}
+
 /**
  * Every answer as one cell, in the order asked. Questions get harder left to right, so the shape
  * of the strip says where the learner's ceiling is before any number does.
