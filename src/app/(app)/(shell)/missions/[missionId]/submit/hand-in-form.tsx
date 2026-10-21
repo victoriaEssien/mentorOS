@@ -81,8 +81,8 @@ export function HandInForm({
         />
         <p className="mt-5 text-headline">Reading your work</p>
         <p className="mt-1 text-callout text-muted-foreground">
-          Opening your links, then scoring the work against each criterion. This takes up to a minute; keep
-          this screen open.
+          Opening your links, scoring the work against each criterion, then checking that feedback before you
+          see it. This takes about a minute; keep this screen open.
         </p>
       </div>
     );

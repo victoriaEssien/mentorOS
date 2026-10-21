@@ -53,7 +53,7 @@ Every assessment, grade, plan, mission and mentor reply is a paid model call on 
 | Write a diagnostic (three calls)       | deep       | ~$0.25   |
 | Write a knowledge or surprise check    | deep       | ~$0.05   |
 | Grade one written answer               | smart      | ~$0.005  |
-| Grade a mission hand-in                | smart      | ~$0.015  |
+| Grade a hand-in, with its second look  | smart      | ~$0.025  |
 | Plan a path, write a mission           | smart      | ~$0.02   |
 | A mentor reply, a hint, an explanation | fast       | < $0.001 |
 

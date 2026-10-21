@@ -6,7 +6,17 @@ import { evaluation, mission, missionSkill, missionSubmission, skill } from "@/d
 import type { Reflection } from "@/db/schema/learning";
 import { parseGithubLink } from "@/lib/github-links";
 import { toEvidenceRows } from "@/server/ai/modules/skill-profile-updater";
-import { evaluateSubmission, PROMPT_VERSION } from "@/server/ai/modules/submission-evaluator";
+import {
+  applyCorrections,
+  checkEvaluation,
+  type AppliedCorrection,
+} from "@/server/ai/modules/evaluation-checker";
+import {
+  evaluateSubmission,
+  PROMPT_VERSION,
+  type EvaluatedMission,
+  type EvaluatedWork,
+} from "@/server/ai/modules/submission-evaluator";
 import type { SubmissionEvaluation } from "@/server/ai/schemas";
 
 import { readArtifacts } from "./artifacts";
@@ -41,6 +51,11 @@ export type SubmissionEvaluationResult = SubmissionEvaluation & {
   changes: SkillChange[];
   /** What was read from each link, or why it couldn't be. */
   links: { url: string; files: string[]; note: string | null }[];
+  /**
+   * What the second look fixed before the learner saw it (empty when everything held). Null when
+   * the check failed and the first look stood; absent on evaluations from before it existed.
+   */
+  secondLook?: { model: string; promptVersion: string; corrections: AppliedCorrection[] } | null;
 };
 
 /**
@@ -99,25 +114,25 @@ export async function submitWork(
       readArtifacts(input.links),
     ]);
 
-    const { evaluation: graded, meta } = await evaluateSubmission({
-      mission: {
-        title: claimed.title,
-        type: claimed.type,
-        difficulty: claimed.difficulty,
-        objective: claimed.objective,
-        deliverable: claimed.deliverable,
-        instructions: claimed.instructions,
-        criteria: claimed.evaluationCriteria,
-        skills: skills.map((s) => ({ slug: s.slug, name: s.name })),
-      },
-      work: {
-        content: input.content,
-        links,
-        reflection: Object.entries(input.reflection ?? {}).flatMap(([key, answer]) =>
-          answer ? [{ question: REFLECTION_QUESTIONS[key as keyof Reflection], answer }] : [],
-        ),
-      },
-    });
+    const evaluatedMission: EvaluatedMission = {
+      title: claimed.title,
+      type: claimed.type,
+      difficulty: claimed.difficulty,
+      objective: claimed.objective,
+      deliverable: claimed.deliverable,
+      instructions: claimed.instructions,
+      criteria: claimed.evaluationCriteria,
+      skills: skills.map((s) => ({ slug: s.slug, name: s.name })),
+    };
+    const work: EvaluatedWork = {
+      content: input.content,
+      links,
+      reflection: Object.entries(input.reflection ?? {}).flatMap(([key, answer]) =>
+        answer ? [{ question: REFLECTION_QUESTIONS[key as keyof Reflection], answer }] : [],
+      ),
+    };
+    const { evaluation: firstLook, meta } = await evaluateSubmission({ mission: evaluatedMission, work });
+    const { evaluation: graded, secondLook } = await withSecondLook(firstLook, evaluatedMission, work);
 
     const available = claimed.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0);
     const score = available > 0 ? graded.criteria.reduce((sum, c) => sum + c.score, 0) / available : 0;
@@ -151,6 +166,7 @@ export async function submitWork(
       score: Math.round(score * 1000) / 1000,
       changes,
       links: links.map((link) => ({ url: link.url, files: link.files.map((f) => f.path), note: link.note })),
+      secondLook,
     };
 
     const evaluationId = crypto.randomUUID();
@@ -187,5 +203,38 @@ export async function submitWork(
       .set({ status: "in_progress" })
       .where(and(eq(mission.id, missionId), eq(mission.status, "submitted")));
     throw error;
+  }
+}
+
+/**
+ * The second look (Evaluation Checker): wrong claims in the feedback are fixed before the learner
+ * sees it, and a criterion is re-scored when a wrong claim changed its marks, so the score and the
+ * verdict computed after this match the corrected feedback. If the check fails, the first look
+ * stands: a hand-in is never lost to it.
+ */
+async function withSecondLook(
+  firstLook: SubmissionEvaluation,
+  mission: EvaluatedMission,
+  work: EvaluatedWork,
+): Promise<{ evaluation: SubmissionEvaluation; secondLook: SubmissionEvaluationResult["secondLook"] }> {
+  try {
+    const { corrections, meta } = await checkEvaluation({ mission, work, evaluation: firstLook });
+    const { evaluation, applied } = applyCorrections(firstLook, corrections, mission);
+    if (applied.length > 0) {
+      console.info(
+        JSON.stringify({
+          event: "evaluation.corrected",
+          corrections: applied.length,
+          rescored: applied.filter((c) => c.scoreBefore !== c.scoreAfter).length,
+        }),
+      );
+    }
+    return {
+      evaluation,
+      secondLook: { model: meta.model, promptVersion: meta.promptVersion, corrections: applied },
+    };
+  } catch (error) {
+    console.error(JSON.stringify({ event: "evaluation.check_failed", reason: String(error) }));
+    return { evaluation: firstLook, secondLook: null };
   }
 }

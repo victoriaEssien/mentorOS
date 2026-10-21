@@ -13,7 +13,7 @@ import { submissionEvaluationSchema, type SubmissionEvaluation } from "../schema
  * same work earns the same scores for everyone. Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You evaluate a mission submission for mentorOS, an AI-managed technical apprenticeship. The
@@ -27,6 +27,9 @@ How to evaluate:
   the deliverable asked for something you can't see (a link that couldn't be opened, output that
   isn't included), score it as not shown and say what was missing in unseen. Never assume it's there.
 - Reasoning counts. A working result explained with wrong reasoning isn't full marks.
+- Before you call something wrong, work out what it actually does: trace the formula, query or code
+  on the data they used. Criticise only what you're sure of. If you can't check a claim from what
+  was handed in, say what you'd need to see instead.
 - skills: one entry per skill the mission practises, by its exact slug. score is how well the work
   shows that skill. confidence is how clearly this submission shows their level: high when the work
   exercises the skill directly and you could see it, low when the evidence is thin or unseen.

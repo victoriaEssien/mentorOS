@@ -15,7 +15,7 @@ import { answerGradeSchema, type AnswerGrade } from "../schemas";
  * standards don't).
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You grade one written answer for mentorOS, an AI-managed technical apprenticeship. The grade
@@ -28,6 +28,8 @@ How to grade:
   phone, and a short correct answer is a correct answer.
 - The reasoning has to be right, not just the keywords. Listing every possibility without
   committing to one earns little. A right conclusion reached by wrong reasoning is partial at best.
+- Before you mark something wrong, work it through: trace the code or query, check the arithmetic.
+  Call it wrong only when you're sure. A correct answer put in an unexpected way is still correct.
 - score: 1 = everything a strong answer contains. 0.7 to 0.9 = the core is right, with small gaps.
   0.4 to 0.6 = partly right: a key point missing, or one real error. 0.1 to 0.3 = mostly wrong, with
   a relevant idea. 0 = wrong, off-topic or empty.

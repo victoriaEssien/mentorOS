@@ -51,6 +51,7 @@ src/db                  Drizzle schema (Neon Postgres) and seed taxonomy
 | Learning Planner      | `learning-planner.ts`      | smart | `LearningPlan`                              |
 | Mission Generator     | `mission-generator.ts`     | smart | `GeneratedMission`                          |
 | Submission Evaluator  | `submission-evaluator.ts`  | smart | `SubmissionEvaluation`                      |
+| Evaluation Checker    | `evaluation-checker.ts`    | smart | `EvaluationCheck` (fixes, usually none)     |
 | Skill Profile Updater | `skill-profile-updater.ts` | none  | evidence rows (pure mapping)                |
 | Tutor                 | `tutor.ts`                 | fast  | text                                        |
 | Mentor                | `mentor.ts`                | fast  | streamed chat, calls other modules as tools |
@@ -66,6 +67,7 @@ Tiers map to `AI_MODEL_FAST`, `AI_MODEL_SMART` and `AI_MODEL_DEEP`. Writing asse
 ## Grading
 
 - Multiple choice and "I don't know" are graded by rules. Written answers and hand-ins are graded by the model against a rubric or criteria, and the verdict is computed in code from the scores: strong ≥ 0.85, pass ≥ 0.7, partial ≥ 0.3, otherwise fail (`GRADING_VERSION` g2).
+- Hand-in feedback gets a second look before anyone sees it. The Evaluation Checker tests every factual claim in it against the work and the subject, and fixes the ones that don't hold, re-scoring a criterion when a wrong claim changed its marks. The fixes are applied in code and stored with the evaluation (`secondLook`), before and after. If the check fails, the first look stands.
 - A grade becomes evidence weighted by difficulty and confidence. Each hint used on a question lowers its confidence (`hintDiscount`).
 - A hand-in that passes completes the current path step. A finished path, a graded diagnostic, new tracks or the learner's own request replan it.
 
