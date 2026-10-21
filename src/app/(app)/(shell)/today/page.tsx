@@ -21,10 +21,12 @@ import { getToday, type Today } from "@/server/queries/today";
 import { requireLearner } from "@/server/session";
 
 import { GetMissionPanel } from "../missions/mission-controls";
+import { WriteDiagnosticPanel } from "./write-diagnostic";
 
 export const metadata: Metadata = { title: "Today" };
 
-// "Get today's mission" writes one with a model call inside this route's server action.
+// Writing today's mission, or a diagnostic onboarding couldn't, runs model calls inside this
+// route's server actions.
 export const maxDuration = 120;
 
 type OpenAssessment = Today["openChecks"][number];
@@ -41,6 +43,7 @@ export default async function TodayPage() {
 
   const next = nextAction({
     openDiagnostic: today.openDiagnostic,
+    hasDiagnostic: today.hasDiagnostic,
     hasPath: Boolean(today.path.active),
     pathOnItsWay: today.path.firstPathOnItsWay,
     openSurprise: today.openSurprise,
@@ -287,6 +290,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           {next.assessment.title}. Answers save as you go.
         </AlertCard>
       );
+
+    case "write-diagnostic":
+      return <WriteDiagnosticPanel />;
 
     case "get-mission":
       return (

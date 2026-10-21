@@ -4,6 +4,7 @@ import { nextAction } from "./today";
 
 const settled = {
   openDiagnostic: null,
+  hasDiagnostic: true,
   hasPath: true,
   pathOnItsWay: false,
   openSurprise: null,
@@ -16,6 +17,15 @@ describe("nextAction", () => {
     expect(
       nextAction({ ...settled, openDiagnostic: "diagnostic", openSurprise: "surprise", daily: "mission" }),
     ).toEqual({ kind: "diagnostic", assessment: "diagnostic" });
+  });
+
+  it("offers to write the diagnostic when onboarding couldn't, ahead of any path", () => {
+    expect(nextAction({ ...settled, hasDiagnostic: false, hasPath: false })).toEqual({
+      kind: "write-diagnostic",
+    });
+    expect(nextAction({ ...settled, hasDiagnostic: false, daily: "mission" })).toEqual({
+      kind: "write-diagnostic",
+    });
   });
 
   it("waits for a path that's being planned, or asks for one", () => {

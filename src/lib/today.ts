@@ -6,6 +6,7 @@
  */
 export type NextAction<Mission, Assessment> =
   | { kind: "diagnostic"; assessment: Assessment }
+  | { kind: "write-diagnostic" }
   | { kind: "path-on-its-way" }
   | { kind: "plan-path" }
   | { kind: "surprise"; assessment: Assessment }
@@ -15,6 +16,8 @@ export type NextAction<Mission, Assessment> =
 
 export function nextAction<Mission, Assessment>(state: {
   openDiagnostic: Assessment | null;
+  /** Whether any diagnostic exists, taken or not. None means onboarding couldn't write it. */
+  hasDiagnostic: boolean;
   hasPath: boolean;
   pathOnItsWay: boolean;
   openSurprise: Assessment | null;
@@ -22,6 +25,7 @@ export function nextAction<Mission, Assessment>(state: {
   openChecks: Assessment[];
 }): NextAction<Mission, Assessment> {
   if (state.openDiagnostic) return { kind: "diagnostic", assessment: state.openDiagnostic };
+  if (!state.hasDiagnostic) return { kind: "write-diagnostic" };
   if (!state.hasPath) return state.pathOnItsWay ? { kind: "path-on-its-way" } : { kind: "plan-path" };
   if (state.openSurprise) return { kind: "surprise", assessment: state.openSurprise };
   if (state.daily) return { kind: "mission", mission: state.daily };

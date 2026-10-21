@@ -72,6 +72,14 @@ export async function completeOnboarding(
 }
 
 /**
+ * Writes the diagnostic (PRD §9) for a learner onboarding couldn't write one for, or returns the
+ * one already waiting. One model call per group of skills, about a minute in all.
+ */
+export async function startDiagnostic(userId: string): Promise<{ assessmentId: string }> {
+  return { assessmentId: await ensureDiagnostic(userId) };
+}
+
+/**
  * Grades a handed-in assessment attempt and records its evidence (PRD §9, §10). Throws
  * AssessmentClosedError if the attempt was already handed in.
  *

@@ -28,6 +28,7 @@ export async function getToday(userId: string) {
     daily: missions.daily,
     weekly: missions.weekly,
     openDiagnostic: open.find((row) => row.kind === "diagnostic") ?? null,
+    hasDiagnostic: assessments.some((row) => row.kind === "diagnostic"),
     openSurprise: open.find((row) => row.kind === "surprise") ?? null,
     openChecks: open.filter((row) => row.kind === "knowledge_check" || row.kind === "reassessment"),
     recent,
