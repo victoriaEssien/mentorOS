@@ -24,7 +24,7 @@ export default async function MentorPage() {
   return (
     // The composer rests on the dock, so the screen needs no room of its own below it.
     <Screen className="pb-[calc(env(safe-area-inset-bottom)+4rem)] lg:pb-0">
-      <ScreenHeader title="Mentor" subtitle="Knows your record. Asks before it tells." />
+      <ScreenHeader title="Mentor" subtitle="Pip knows your record, and asks before it tells." />
       <MentorChat threadId={thread.id} initialMessages={thread.messages} suggestions={suggestions} />
     </Screen>
   );

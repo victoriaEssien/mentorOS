@@ -6,6 +6,7 @@ import { ArrowUp, ClipboardList, Flag, Route as RouteIcon, Square } from "lucide
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { Pip, PipSays } from "@/components/brand/pip";
 import { FormAlert } from "@/components/form/form-alert";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Markdown } from "@/components/system/markdown";
@@ -63,11 +64,11 @@ export function MentorChat({
   return (
     <>
       {messages.length === 0 ? (
-        <div className="flex flex-col gap-4">
-          <p className="text-body text-muted-foreground">
-            I know your skills, your path, your missions and the mistakes you&apos;ve made. Ask me why
-            something works, to test you, or to change what you&apos;re working on.
-          </p>
+        <div className="flex flex-col gap-5">
+          <PipSays>
+            I&apos;m Pip. I know your skills, your path, your missions and the mistakes you&apos;ve made. Ask
+            me why something works, to test you, or to change what you&apos;re working on.
+          </PipSays>
           <div className="flex flex-col gap-2">
             {suggestions.map((suggestion) => (
               <button
@@ -93,9 +94,10 @@ export function MentorChat({
             </li>
           ))}
           {status === "submitted" ? (
-            <li>
+            <li className="flex gap-2.5">
+              <Pip mood="thinking" frame="body" size={28} className="mt-0.5" />
               {/* True to what happens first: the server loads their record before the model starts. */}
-              <ol className="flex flex-col gap-2">
+              <ol className="flex flex-col gap-2 pt-1">
                 <Step state="running" label="Reading your record" />
               </ol>
             </li>
@@ -120,8 +122,8 @@ export function MentorChat({
           className="flex items-end gap-2 rounded-lg border border-rule bg-window p-2 shadow-window"
         >
           <textarea
-            aria-label="Message your mentor"
-            placeholder="Ask your mentor"
+            aria-label="Message Pip"
+            placeholder="Ask Pip about your work"
             value={input}
             rows={1}
             maxLength={4000}
@@ -197,12 +199,24 @@ function MentorMessage({ message }: { message: UIMessage }) {
     }
     if (part.type === "text" && part.text.trim()) {
       closeRun();
-      blocks.push(<Markdown key={`text-${index}`} text={part.text} />);
+      blocks.push(
+        <div
+          key={`text-${index}`}
+          className="w-fit max-w-full rounded-lg rounded-tl-xs border border-rule bg-window px-3.5 py-2.5"
+        >
+          <Markdown text={part.text} />
+        </div>,
+      );
     }
   });
   closeRun();
 
-  return <div className="flex flex-col gap-3">{blocks}</div>;
+  return (
+    <div className="flex gap-2.5">
+      <Pip frame="body" size={28} className="mt-0.5" />
+      <div className="flex min-w-0 flex-1 flex-col gap-3">{blocks}</div>
+    </div>
+  );
 }
 
 type StepState = "running" | "done" | "failed";
