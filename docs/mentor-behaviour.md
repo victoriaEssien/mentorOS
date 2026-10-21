@@ -212,10 +212,18 @@ Design and defend a scalable backend architecture
 
 Six months later, the mentor actually knows how you've developed.
 
-## 17. It can say "no, you're not ready yet"
+## 17. It talks the way you asked, and the standards stay put
+
+You choose how blunt it is: straight talk, direct and fair, or encouraging. That changes the wording, never the score. It also reads the room on its own: gentler after a run of fails, more demanding when you're cruising.
+
+## 18. It helps during a check without giving it away
+
+Stuck on a question? Ask for a hint. You get one nudge at a time, a question to think about or a concept to revisit, and never any part of what the question asks you to produce. Every hint counts against how much that answer proves, and five is the limit. "I don't know" is always a fair answer.
+
+## 19. It can say "no, you're not ready yet"
 
 Ask "Can we move on to Kubernetes?" and it might say: "Not yet. You've been able to use Docker, but your understanding of networking and containers is still inconsistent. Let's do two practical exercises first." It is not a chatbot that obeys every request.
 
-## 18. It eventually makes you independent
+## 20. It eventually makes you independent
 
 The goal isn't "ask the AI everything". It's getting you to the point where you say "Here's a problem. Here's what I think. Here's my architecture. Here's why I made these decisions." The mentor becomes a reviewer, challenger and coach. That is the end state.
