@@ -1,0 +1,45 @@
+"use client";
+
+import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react";
+import { Toaster as Sonner, type ToasterProps } from "sonner";
+
+/**
+ * Transient confirmations. Pinned to the top edge so they never sit on the dock or a
+ * bottom-anchored primary action; colours follow the device theme like everything else.
+ */
+function Toaster(props: ToasterProps) {
+  return (
+    <Sonner
+      theme="system"
+      position="top-center"
+      offset={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top) + 0.5rem)" }}
+      className="toaster group"
+      icons={{
+        success: <CircleCheckIcon className="size-4 text-pass" />,
+        info: <InfoIcon className="size-4" />,
+        warning: <TriangleAlertIcon className="size-4 text-partial" />,
+        error: <OctagonXIcon className="size-4 text-fail" />,
+        loading: <Loader2Icon className="size-4 animate-spin" />,
+      }}
+      toastOptions={{
+        classNames: {
+          toast: "font-sans rounded-lg! border-rule! shadow-window!",
+          title: "text-callout! font-semibold!",
+          description: "text-footnote! text-muted-foreground!",
+        },
+      }}
+      style={
+        {
+          "--normal-bg": "var(--popover)",
+          "--normal-text": "var(--popover-foreground)",
+          "--normal-border": "var(--border)",
+          "--border-radius": "var(--radius-lg)",
+        } as React.CSSProperties
+      }
+      {...props}
+    />
+  );
+}
+
+export { Toaster };

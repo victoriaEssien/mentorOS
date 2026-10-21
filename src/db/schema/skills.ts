@@ -1,4 +1,14 @@
-import { type AnyPgColumn, index, integer, pgTable, primaryKey, real, text, uuid } from "drizzle-orm/pg-core";
+import {
+  type AnyPgColumn,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  real,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { createdAt, evidenceSourceType, id, updatedAt } from "./_shared";
 import { user } from "./auth";
@@ -15,7 +25,9 @@ export const track = pgTable("track", {
 
 /**
  * A capability, independent of any course (PRD §11).
- * Skills form a tree through parentId and can be referenced from any track's path or mission.
+ * `trackId` and `parentId` are the skill's home. Top-level skills (no parent) are groups that
+ * organise a track's tree; leaf skills are what assessments and missions actually measure.
+ * A skill can appear in other tracks too, through skill_placement.
  */
 export const skill = pgTable(
   "skill",
@@ -30,6 +42,27 @@ export const skill = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index().on(t.trackId), index().on(t.parentId)],
+);
+
+/**
+ * Where a skill sits in each track's tree (PRD §11: "the same skill can appear across different
+ * learning paths"). SQL lives under Databases in Software Engineering and under Querying in Data
+ * Analysis: one skill, one evidence history, two placements. Includes the home placement.
+ */
+export const skillPlacement = pgTable(
+  "skill_placement",
+  {
+    trackId: uuid()
+      .notNull()
+      .references(() => track.id, { onDelete: "cascade" }),
+    skillId: uuid()
+      .notNull()
+      .references(() => skill.id, { onDelete: "cascade" }),
+    /** The group this skill sits under in this track; null for the track's groups themselves. */
+    parentId: uuid().references(() => skill.id, { onDelete: "cascade" }),
+    sortOrder: integer().default(0).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.trackId, t.skillId] }), index().on(t.skillId)],
 );
 
 /**
@@ -91,6 +124,8 @@ export const userSkill = pgTable(
     ability: real().notNull(),
     confidence: real().notNull(),
     evidenceCount: integer().default(0).notNull(),
+    /** When the newest evidence for this skill arrived. Drives retention checks. */
+    lastEvidenceAt: timestamp({ withTimezone: true }),
     updatedAt: updatedAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.skillId] })],

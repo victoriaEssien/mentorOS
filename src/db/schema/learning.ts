@@ -1,4 +1,15 @@
-import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import {
   createdAt,
@@ -21,10 +32,21 @@ export const learningPath = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     focusSummary: text().notNull(),
+    /** What the learner asked for when this path was planned, if they asked for anything. */
+    request: text(),
+    /** Model and prompt version that planned it, for auditability. */
+    model: text(),
+    promptVersion: text(),
     archivedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.userId)],
+  (t) => [
+    index().on(t.userId),
+    // One active path per learner: of two plans racing, the second fails instead of both standing.
+    uniqueIndex("learning_path_active_index")
+      .on(t.userId)
+      .where(sql`${t.archivedAt} is null`),
+  ],
 );
 
 export const learningPathItem = pgTable(
@@ -40,6 +62,8 @@ export const learningPathItem = pgTable(
     reason: text().notNull(),
     order: integer().notNull(),
     status: pathItemStatus().default("upcoming").notNull(),
+    /** For a deferred item ("not yet"): what has to be true before it unlocks. */
+    unlockWhen: text(),
     updatedAt: updatedAt(),
   },
   (t) => [index().on(t.pathId)],
@@ -70,12 +94,21 @@ export const mission = pgTable(
     evaluationCriteria: jsonb().$type<EvaluationCriterion[]>().default([]).notNull(),
     resources: jsonb().$type<MissionResource[]>().default([]).notNull(),
     estimatedMinutes: integer(),
+    /** 1 (guided) to 5 (an open problem they haven't seen), from planDifficulty. */
+    difficulty: integer(),
     dueAt: timestamp({ withTimezone: true }),
     generatedBy: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index().on(t.userId, t.status)],
+  (t) => [
+    index().on(t.userId, t.status),
+    // One mission in play per learner and cadence: a racing second assignment fails instead of
+    // stacking a second daily mission.
+    uniqueIndex("mission_active_index")
+      .on(t.userId, t.cadence)
+      .where(sql`${t.status} in ('assigned', 'in_progress', 'submitted')`),
+  ],
 );
 
 export const missionSkill = pgTable(

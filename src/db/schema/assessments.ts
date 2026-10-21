@@ -1,4 +1,15 @@
-import { index, integer, jsonb, pgTable, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { assessmentItemType, assessmentKind, createdAt, id } from "./_shared";
 import { user } from "./auth";
@@ -61,7 +72,13 @@ export const assessmentAttempt = pgTable(
     startedAt: createdAt(),
     completedAt: timestamp({ withTimezone: true }),
   },
-  (t) => [index().on(t.userId)],
+  (t) => [
+    index().on(t.userId),
+    // At most one attempt in progress per learner and assessment, so racing autosaves share it.
+    uniqueIndex("assessment_attempt_open_index")
+      .on(t.assessmentId, t.userId)
+      .where(sql`${t.completedAt} is null`),
+  ],
 );
 
 export const assessmentResponse = pgTable(
@@ -74,11 +91,12 @@ export const assessmentResponse = pgTable(
     itemId: uuid()
       .notNull()
       .references(() => assessmentItem.id, { onDelete: "cascade" }),
-    response: jsonb().notNull(),
+    /** Null when the learner asked for a hint on the question but hasn't answered it yet. */
+    response: jsonb(),
     score: real(),
     /** Hints the mentor gave during this item. Affects how much the score counts. */
     hintsUsed: integer().default(0).notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.attemptId)],
+  (t) => [uniqueIndex().on(t.attemptId, t.itemId)],
 );

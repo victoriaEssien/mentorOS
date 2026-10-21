@@ -23,7 +23,7 @@ Conventions for anyone, human or agent, writing code in this repository.
 - **The AI is not the database.** Learner state lives in Postgres. `skill_evidence` is append-only and is the source of truth. `user_skill` is derived by `estimateSkill` in plain code, never written from model output.
 - **Every AI output that changes state is structured.** Define a Zod schema in `src/server/ai/schemas`, generate with `Output.object`, validate, then persist.
 - **One responsibility per AI module.** No giant prompt. Add a module under `src/server/ai/modules` rather than growing an existing one.
-- **Only `src/server/ai/provider.ts` knows model ids.** Modules ask for a tier (`fast` or `smart`).
+- **Only `src/server/ai/provider.ts` knows model ids.** Modules ask for a tier (`fast`, `smart` or `deep`).
 - **Only `src/server/learning` writes learner state.** Pages and route handlers call orchestrators in `loop.ts`; they never call AI modules directly.
 - **Every recommendation carries a reason.** Path items and missions have a required `reason` column. Keep it that way.
 - **Bump `PROMPT_VERSION`** in a module whenever its prompt changes, so stored evaluations stay traceable.

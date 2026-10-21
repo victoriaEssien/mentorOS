@@ -1,48 +1,222 @@
 import "server-only";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
-import { NotImplementedError } from "@/lib/errors";
+import { db } from "@/db";
+import {
+  assessment,
+  assessmentAttempt,
+  evaluation,
+  learnerProfile,
+  learningPath,
+  learningPathItem,
+  mission,
+  missionSubmission,
+  skill,
+  track,
+  user,
+  userSkill,
+  userTrack,
+} from "@/db/schema";
+import type { Outcome } from "@/server/learning/difficulty";
 
-/**
- * Everything an AI module is allowed to know about a learner (PRD §21).
- * Assembled from the database on every call. The model never remembers anything on its own.
- */
-export type LearnerContext = {
-  userId: string;
-  name: string;
-  tracks: { slug: string; name: string }[];
-  goals: string[];
-  background: {
-    currentRole?: string;
-    yearsExperience?: number;
-    technologiesUsed: string[];
-    weeklyLearningHours?: number;
-    learningStyle?: string;
-  };
-  skills: {
-    skillId: string;
-    slug: string;
-    name: string;
-    ability: number;
-    confidence: number;
-    evidenceCount: number;
-  }[];
-  /** Recurring weaknesses observed across evaluations (behaviour 11). */
-  weaknessPatterns: string[];
-  currentPath: { focusSummary: string; items: { title: string; reason: string; status: string }[] } | null;
-  currentMission: { id: string; title: string; type: string; objective: string } | null;
-  recentMissions: { title: string; outcome?: string; completedAt?: string }[];
-  recentAssessments: { title: string; kind: string; score?: number; completedAt?: string }[];
-  recentMistakes: string[];
-  recentProjects: string[];
-};
+import {
+  deriveMomentum,
+  missionPoints,
+  WEAK_ABILITY,
+  WEAK_MIN_CONFIDENCE,
+  type LearnerContext,
+} from "./context-render";
 
+export * from "./context-render";
+
+const ACTIVE_MISSION = ["assigned", "in_progress", "submitted"] as const;
+
+/** Builds the learner's context from the database. Called fresh for every AI call. */
 export async function buildLearnerContext(userId: string): Promise<LearnerContext> {
-  void userId;
-  throw new NotImplementedError("buildLearnerContext");
+  const [[account], [profile], tracks, skills, [path], missions, attempts, evaluations] = await Promise.all([
+    db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1),
+    db.select().from(learnerProfile).where(eq(learnerProfile.userId, userId)).limit(1),
+    db
+      .select({ slug: track.slug, name: track.name })
+      .from(userTrack)
+      .innerJoin(track, eq(userTrack.trackId, track.id))
+      .where(eq(userTrack.userId, userId))
+      .orderBy(track.sortOrder),
+    db
+      .select({
+        skillId: userSkill.skillId,
+        slug: skill.slug,
+        name: skill.name,
+        ability: userSkill.ability,
+        confidence: userSkill.confidence,
+        evidenceCount: userSkill.evidenceCount,
+      })
+      .from(userSkill)
+      .innerJoin(skill, eq(userSkill.skillId, skill.id))
+      .where(eq(userSkill.userId, userId))
+      .orderBy(skill.sortOrder),
+    db
+      .select()
+      .from(learningPath)
+      .where(and(eq(learningPath.userId, userId), isNull(learningPath.archivedAt)))
+      .orderBy(desc(learningPath.createdAt))
+      .limit(1),
+    db
+      .select({
+        id: mission.id,
+        title: mission.title,
+        type: mission.type,
+        objective: mission.objective,
+        status: mission.status,
+        updatedAt: mission.updatedAt,
+        criteria: mission.evaluationCriteria,
+      })
+      .from(mission)
+      .where(eq(mission.userId, userId))
+      .orderBy(desc(mission.createdAt))
+      .limit(8),
+    db
+      .select({
+        title: assessment.title,
+        kind: assessment.kind,
+        completedAt: assessmentAttempt.completedAt,
+        // The evaluation's score counts unanswered questions as zero; response averages can't.
+        score: sql<
+          number | null
+        >`(select (${evaluation.result} ->> 'score')::real from ${evaluation} where ${evaluation.attemptId} = ${assessmentAttempt.id})`,
+      })
+      .from(assessmentAttempt)
+      .innerJoin(assessment, eq(assessmentAttempt.assessmentId, assessment.id))
+      .where(and(eq(assessmentAttempt.userId, userId), isNotNull(assessmentAttempt.completedAt)))
+      .orderBy(desc(assessmentAttempt.completedAt))
+      .limit(5),
+    db
+      .select({
+        outcome: evaluation.outcome,
+        result: evaluation.result,
+        submissionId: evaluation.submissionId,
+      })
+      .from(evaluation)
+      .where(eq(evaluation.userId, userId))
+      .orderBy(desc(evaluation.createdAt))
+      .limit(8),
+  ]);
+
+  const [pathItems, missionEvaluations] = await Promise.all([
+    path
+      ? db
+          .select({
+            title: learningPathItem.title,
+            reason: learningPathItem.reason,
+            status: learningPathItem.status,
+            skill: skill.slug,
+          })
+          .from(learningPathItem)
+          .leftJoin(skill, eq(learningPathItem.skillId, skill.id))
+          .where(eq(learningPathItem.pathId, path.id))
+          .orderBy(learningPathItem.order)
+      : Promise.resolve([]),
+    latestMissionEvaluations(missions.map((m) => m.id)),
+  ]);
+
+  const current = missions.find((m) => (ACTIVE_MISSION as readonly string[]).includes(m.status)) ?? null;
+
+  return {
+    userId,
+    name: account?.name ?? "Learner",
+    tracks,
+    goals: [...(profile?.goals ?? []), ...(profile?.customGoal ? [profile.customGoal] : [])],
+    background: {
+      currentRole: profile?.currentRole ?? null,
+      yearsExperience: profile?.yearsExperience ?? null,
+      technologiesUsed: profile?.technologiesUsed ?? [],
+      weeklyLearningHours: profile?.weeklyLearningHours ?? null,
+      learningStyle: profile?.learningStyle ?? null,
+      previousLearning: profile?.previousLearning ?? null,
+      existingProjects: profile?.existingProjects ?? null,
+    },
+    tone: {
+      preference: profile?.mentorTone ?? "balanced",
+      momentum: deriveMomentum(evaluations.map((e) => e.outcome)),
+    },
+    skills,
+    weakSkills: skills
+      .filter((s) => s.ability < WEAK_ABILITY && s.confidence >= WEAK_MIN_CONFIDENCE)
+      .map((s) => s.slug),
+    currentPath: path ? { focusSummary: path.focusSummary, items: pathItems } : null,
+    currentMission: current
+      ? {
+          id: current.id,
+          title: current.title,
+          type: current.type,
+          objective: current.objective,
+          status: current.status,
+        }
+      : null,
+    recentMissions: missions
+      .filter((m) => m.status === "evaluated" || m.status === "skipped")
+      .map((m) => {
+        const latest = missionEvaluations.get(m.id);
+        return {
+          title: m.title,
+          outcome: latest?.outcome ?? null,
+          completedAt: m.updatedAt.toISOString(),
+          points: latest ? missionPoints(latest.result, m.criteria) : null,
+        };
+      }),
+    recentAssessments: attempts.map((a) => ({
+      title: a.title,
+      kind: a.kind,
+      score: a.score === null ? null : Number(a.score),
+      completedAt: a.completedAt?.toISOString() ?? null,
+    })),
+    recentMistakes: evaluations.flatMap((e) => mistakesFrom(e.result)),
+  };
 }
 
-/** Compact text rendering of the context for prompts. Keep token use predictable. */
-export function renderLearnerContext(context: LearnerContext): string {
-  void context;
-  throw new NotImplementedError("renderLearnerContext");
+/** Each mission's latest evaluation: its outcome and the stored result its points come from. */
+async function latestMissionEvaluations(
+  missionIds: string[],
+): Promise<Map<string, { outcome: Outcome; result: unknown }>> {
+  if (missionIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      missionId: missionSubmission.missionId,
+      outcome: evaluation.outcome,
+      result: evaluation.result,
+    })
+    .from(evaluation)
+    .innerJoin(missionSubmission, eq(evaluation.submissionId, missionSubmission.id))
+    .where(inArray(missionSubmission.missionId, missionIds))
+    .orderBy(desc(evaluation.createdAt));
+
+  const latest = new Map<string, { outcome: Outcome; result: unknown }>();
+  for (const row of rows) {
+    if (!latest.has(row.missionId)) latest.set(row.missionId, { outcome: row.outcome, result: row.result });
+  }
+  return latest;
+}
+
+/**
+ * Weaknesses from submission evaluations, and misconceptions from graded assessments (their
+ * per-answer grades are under `items`, see AttemptEvaluationResult).
+ */
+function mistakesFrom(result: unknown): string[] {
+  if (!result || typeof result !== "object") return [];
+  const record = result as { weaknesses?: unknown; items?: unknown };
+
+  const weaknesses = Array.isArray(record.weaknesses)
+    ? record.weaknesses.filter((value): value is string => typeof value === "string")
+    : [];
+  const misconceptions = Array.isArray(record.items)
+    ? record.items.flatMap((grade) =>
+        grade &&
+        typeof grade === "object" &&
+        typeof (grade as { misconception?: unknown }).misconception === "string"
+          ? [(grade as { misconception: string }).misconception]
+          : [],
+      )
+    : [];
+
+  return [...weaknesses, ...misconceptions];
 }
