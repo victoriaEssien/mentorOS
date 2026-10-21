@@ -16,7 +16,7 @@ export function SideRail() {
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-rule bg-window px-3 py-6 lg:flex">
       <Link
         href="/today"
-        className="px-3 text-xl outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        className="pressable px-3 text-xl outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
         <Wordmark />
       </Link>

@@ -2,6 +2,7 @@ import { Route as RouteIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { AlertCard } from "@/components/system/alert-card";
 import { MissionCard } from "@/components/system/mission-card";
@@ -77,6 +78,7 @@ export default async function MissionsPage() {
               return (
                 <li key={mission.id}>
                   <Link
+                    transitionTypes={NAV_FORWARD}
                     href={`/missions/${mission.id}`}
                     className="flex pressable items-center justify-between gap-3 py-3.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >

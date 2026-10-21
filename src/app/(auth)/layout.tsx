@@ -12,7 +12,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-dvh flex-col">
       <header className="pt-safe">
         <div className="mx-auto flex h-14 w-full max-w-md items-center px-5 sm:max-w-none sm:px-8">
-          <Link href="/" className="text-lg outline-none focus-visible:outline-2 focus-visible:outline-ring">
+          <Link
+            href="/"
+            className="pressable text-lg outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
             <Wordmark />
           </Link>
         </div>

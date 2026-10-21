@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { NAV_BACK } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { Button } from "@/components/ui/button";
 import { getAssessmentResults } from "@/server/queries/assessments";
@@ -32,7 +33,7 @@ export default async function AssessmentResultsPage({
           subtitle={`${assessment.title}, handed in ${handedIn(review.completedAt)}.`}
           actions={
             <Button asChild variant="ghost" size="icon">
-              <Link href="/today" aria-label="Close">
+              <Link transitionTypes={NAV_BACK} href="/today" aria-label="Close">
                 <X className="size-5.5" />
               </Link>
             </Button>

@@ -305,3 +305,66 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Directional page transitions (PageTransition). Drilling in, the old screen eases left and fades
+ * as the new one arrives from the right; going back mirrors it. A short offset says which way
+ * without making anyone track a screen flying across the phone.
+ */
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    150ms ease-in both page-fade reverse,
+    360ms var(--ease-out-expo) both page-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    210ms ease-out 120ms both page-fade,
+    360ms var(--ease-out-expo) both page-slide;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation:
+    150ms ease-in both page-fade reverse,
+    360ms var(--ease-out-expo) both page-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation:
+    210ms ease-out 120ms both page-fade,
+    360ms var(--ease-out-expo) both page-slide;
+}
+
+@keyframes page-slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+@keyframes page-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Taps during a slide reach the page, not the transition overlay. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* No sliding for anyone who asked for less motion: screens swap in place. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader } from "@/components/shell/screen";
 import { Badge } from "@/components/ui/badge";
 import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
@@ -33,6 +34,7 @@ export default async function AssessmentsPage() {
             return (
               <li key={row.id}>
                 <Link
+                  transitionTypes={NAV_FORWARD}
                   href={done ? `/assessments/${row.id}/results` : `/assessments/${row.id}`}
                   className="flex pressable items-center gap-3 py-3.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >

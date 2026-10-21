@@ -6,6 +6,7 @@ import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { startTransition, useActionState, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { FormAlert } from "@/components/form/form-alert";
+import { NAV_BACK } from "@/components/shell/page-transition";
 import { CellMeter } from "@/components/system/cell-meter";
 import { CodeBlock, RichText } from "@/components/system/rich-text";
 import { WorkingScreen } from "@/components/system/working-screen";
@@ -291,7 +292,12 @@ export function AssessmentPlayer({
 function CloseButton({ onClose }: { onClose?: () => void }) {
   return (
     <Button asChild variant="ghost" size="icon">
-      <Link href="/today" onClick={onClose} aria-label="Close. Your answers are saved.">
+      <Link
+        transitionTypes={NAV_BACK}
+        href="/today"
+        onClick={onClose}
+        aria-label="Close. Your answers are saved."
+      >
         <X className="size-5.5" />
       </Link>
     </Button>

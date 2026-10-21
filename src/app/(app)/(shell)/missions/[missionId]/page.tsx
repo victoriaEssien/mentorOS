@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { DifficultyCells } from "@/components/system/difficulty-cells";
 import { RichText } from "@/components/system/rich-text";
@@ -185,7 +186,9 @@ function PrimaryAction({
     return (
       <div className="flex flex-col gap-2.5">
         <Button asChild size="lg" className="w-full">
-          <Link href={`/missions/${missionId}/submit`}>Hand in your work</Link>
+          <Link transitionTypes={NAV_FORWARD} href={`/missions/${missionId}/submit`}>
+            Hand in your work
+          </Link>
         </Button>
         <MissionActions missionId={missionId} status="in_progress" />
       </div>
@@ -202,7 +205,9 @@ function PrimaryAction({
   if (status === "evaluated" && hasEvaluation) {
     return (
       <Button asChild size="lg" className="w-full">
-        <Link href={`/missions/${missionId}/evaluation`}>See the evaluation</Link>
+        <Link transitionTypes={NAV_FORWARD} href={`/missions/${missionId}/evaluation`}>
+          See the evaluation
+        </Link>
       </Button>
     );
   }

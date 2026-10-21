@@ -34,7 +34,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={() => retry()}
-            className="mt-5 h-11 w-full rounded-md bg-signal font-semibold text-signal-foreground"
+            className="mt-5 h-11 w-full pressable rounded-md bg-signal font-semibold text-signal-foreground"
           >
             Try again
           </button>

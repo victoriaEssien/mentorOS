@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { CellMeter } from "@/components/system/cell-meter";
 import { cn } from "@/lib/utils";
 import { abilityBand, confidenceBand, type AbilityBand } from "@/server/learning/skill-estimate";
@@ -68,6 +69,7 @@ export function SkillRow<T extends string>({
 
   return href ? (
     <Link
+      transitionTypes={NAV_FORWARD}
       href={href}
       className="block pressable rounded-sm py-3.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

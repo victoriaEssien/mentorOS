@@ -5,21 +5,25 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 import { CompactBar } from "./compact-bar";
+import { NAV_BACK, PageTransition } from "./page-transition";
 
 /**
  * One app screen: a readable column that clears the dock on phones and the safe areas on
- * notched devices. Every screen starts with a ScreenHeader.
+ * notched devices. Every screen starts with a ScreenHeader, and slides in or out when a link
+ * says which way the learner is going (see PageTransition).
  */
 export function Screen({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <main
-      className={cn(
-        "mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:px-6 lg:px-10 lg:pb-16",
-        className,
-      )}
-    >
-      {children}
-    </main>
+    <PageTransition>
+      <main
+        className={cn(
+          "mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] sm:px-6 lg:px-10 lg:pb-16",
+          className,
+        )}
+      >
+        {children}
+      </main>
+    </PageTransition>
   );
 }
 
@@ -45,6 +49,7 @@ export function ScreenHeader<T extends string>({ title, subtitle, back, actions 
           {back ? (
             <Link
               href={back.href}
+              transitionTypes={NAV_BACK}
               className="-ml-2 inline-flex h-11 pressable items-center gap-0.5 rounded-md pr-2 text-callout font-semibold text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
             >
               <ChevronLeft className="size-6" aria-hidden />

@@ -2,6 +2,7 @@ import { Check, ChevronRight, ClipboardList, Lock, Route as RouteIcon } from "lu
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { AlertCard } from "@/components/system/alert-card";
 import { CellMeter } from "@/components/system/cell-meter";
@@ -39,7 +40,9 @@ export default async function LearningPathPage() {
             title="Your path starts with the diagnostic"
             actions={
               <Button asChild>
-                <Link href={`/assessments/${openDiagnosticId}`}>Continue the diagnostic</Link>
+                <Link transitionTypes={NAV_FORWARD} href={`/assessments/${openDiagnosticId}`}>
+                  Continue the diagnostic
+                </Link>
               </Button>
             }
           >
@@ -208,6 +211,7 @@ function StepRow({ step, number }: { step: Step; number: number }) {
 
   return step.skill ? (
     <Link
+      transitionTypes={NAV_FORWARD}
       href={`/profile/skills/${step.skill.slug}`}
       className="flex pressable gap-3.5 py-4 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

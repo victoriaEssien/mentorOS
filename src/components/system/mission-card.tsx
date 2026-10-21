@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { DifficultyCells } from "@/components/system/difficulty-cells";
 import { Badge } from "@/components/ui/badge";
 import { durationLabel, MISSION_STATUS_LABEL, missionTypeLabel } from "@/lib/mission-labels";
@@ -12,6 +13,7 @@ export function MissionCard({ mission }: { mission: MissionSummary }) {
   const duration = durationLabel(mission.estimatedMinutes);
   return (
     <Link
+      transitionTypes={NAV_FORWARD}
       href={`/missions/${mission.id}`}
       className="block pressable rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

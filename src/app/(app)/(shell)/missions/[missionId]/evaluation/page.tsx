@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { CellMeter } from "@/components/system/cell-meter";
 import { formatDelta } from "@/components/system/journal";
@@ -155,7 +156,9 @@ export default async function MissionEvaluationPage({
         <p className="mb-4 text-callout">{view.next}</p>
         {inPlay ? (
           <Button asChild size="lg" className="w-full">
-            <Link href={`/missions/${inPlay.id}`}>Go to your next mission</Link>
+            <Link transitionTypes={NAV_FORWARD} href={`/missions/${inPlay.id}`}>
+              Go to your next mission
+            </Link>
           </Button>
         ) : (
           <GetMissionPanel

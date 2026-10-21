@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { AlertCard } from "@/components/system/alert-card";
 import { SkillRow } from "@/components/system/skill-row";
@@ -31,7 +32,7 @@ export default async function SkillProfilePage() {
         subtitle="What I believe you can do, and the evidence behind it."
         actions={
           <Button asChild variant="ghost" size="icon">
-            <Link href="/settings" aria-label="Settings">
+            <Link transitionTypes={NAV_FORWARD} href="/settings" aria-label="Settings">
               <Settings className="size-5.5" />
             </Link>
           </Button>
@@ -45,7 +46,9 @@ export default async function SkillProfilePage() {
           className="mb-8"
           actions={
             <Button asChild>
-              <Link href={`/assessments/${openDiagnosticId}`}>Continue the diagnostic</Link>
+              <Link transitionTypes={NAV_FORWARD} href={`/assessments/${openDiagnosticId}`}>
+                Continue the diagnostic
+              </Link>
             </Button>
           }
         >
@@ -57,6 +60,7 @@ export default async function SkillProfilePage() {
 
       <ScreenSection title="History">
         <Link
+          transitionTypes={NAV_FORWARD}
           href="/assessments"
           className="flex pressable items-center justify-between gap-3 rounded-lg border border-rule bg-window px-4 py-3.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
@@ -85,6 +89,7 @@ function Unmeasured({ skills }: { skills: SkillProfile[number]["groups"][number]
       {skills.map((skill, index) => (
         <Fragment key={skill.id}>
           <Link
+            transitionTypes={NAV_FORWARD}
             href={`/profile/skills/${skill.slug}`}
             className="underline decoration-rule-strong underline-offset-4 hover:text-foreground"
           >

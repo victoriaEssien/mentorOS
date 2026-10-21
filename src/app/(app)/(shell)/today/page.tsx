@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { after } from "next/server";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
+import { InstallHint } from "@/components/shell/install-hint";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { AlertCard } from "@/components/system/alert-card";
 import { MissionCard, type MissionSummary } from "@/components/system/mission-card";
@@ -113,7 +115,7 @@ export default async function TodayPage() {
             <ul className={cn("divide-y divide-rule border-y border-rule", missions.length > 0 && "mt-3")}>
               {checks.map((check) => (
                 <li key={check.id}>
-                  <Link href={`/assessments/${check.id}`} className={ROW}>
+                  <Link transitionTypes={NAV_FORWARD} href={`/assessments/${check.id}`} className={ROW}>
                     <span className="min-w-0">
                       <span className="block truncate text-body font-semibold">{check.title}</span>
                       <span className="block text-footnote text-muted-foreground">
@@ -162,7 +164,7 @@ export default async function TodayPage() {
               const badge = OUTCOME_BADGE[result.outcome];
               return (
                 <li key={result.id}>
-                  <Link href={result.href} className={ROW}>
+                  <Link transitionTypes={NAV_FORWARD} href={result.href} className={ROW}>
                     <span className="min-w-0">
                       <span className="block truncate text-body font-semibold">{result.title}</span>
                       <span className="block text-footnote text-muted-foreground">
@@ -177,6 +179,8 @@ export default async function TodayPage() {
           </ol>
         </ScreenSection>
       ) : null}
+
+      <InstallHint />
     </Screen>
   );
 }
@@ -191,7 +195,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           title="Finish your diagnostic"
           actions={
             <Button asChild>
-              <Link href={`/assessments/${next.assessment.id}`}>Continue the diagnostic</Link>
+              <Link transitionTypes={NAV_FORWARD} href={`/assessments/${next.assessment.id}`}>
+                Continue the diagnostic
+              </Link>
             </Button>
           }
         >
@@ -237,7 +243,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           title="Surprise check"
           actions={
             <Button asChild>
-              <Link href={`/assessments/${next.assessment.id}`}>Start the check</Link>
+              <Link transitionTypes={NAV_FORWARD} href={`/assessments/${next.assessment.id}`}>
+                Start the check
+              </Link>
             </Button>
           }
         >
@@ -262,7 +270,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           title={mission.title}
           actions={
             <Button asChild variant={mission.status === "submitted" ? "secondary" : "default"}>
-              <Link href={`/missions/${mission.id}`}>{action}</Link>
+              <Link transitionTypes={NAV_FORWARD} href={`/missions/${mission.id}`}>
+                {action}
+              </Link>
             </Button>
           }
         >
@@ -283,7 +293,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           title={`Your ${ASSESSMENT_KIND_LABEL[next.assessment.kind].toLowerCase()} is waiting`}
           actions={
             <Button asChild>
-              <Link href={`/assessments/${next.assessment.id}`}>Continue the check</Link>
+              <Link transitionTypes={NAV_FORWARD} href={`/assessments/${next.assessment.id}`}>
+                Continue the check
+              </Link>
             </Button>
           }
         >

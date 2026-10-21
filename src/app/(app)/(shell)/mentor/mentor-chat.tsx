@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { FormAlert } from "@/components/form/form-alert";
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Markdown } from "@/components/system/markdown";
 import { Button } from "@/components/ui/button";
 import { routeErrorMessage } from "@/lib/route-error";
@@ -291,7 +292,9 @@ function ToolCard({ part }: { part: ToolPart }) {
         body="A few questions. Every answer is evidence."
       >
         <Button asChild size="sm">
-          <Link href={`/assessments/${output.assessmentId}`}>Start the check</Link>
+          <Link transitionTypes={NAV_FORWARD} href={`/assessments/${output.assessmentId}`}>
+            Start the check
+          </Link>
         </Button>
       </Card>
     );
@@ -323,7 +326,9 @@ function ToolCard({ part }: { part: ToolPart }) {
         body="Today's mission."
       >
         <Button asChild size="sm">
-          <Link href={`/missions/${output.missionId}`}>Open the mission</Link>
+          <Link transitionTypes={NAV_FORWARD} href={`/missions/${output.missionId}`}>
+            Open the mission
+          </Link>
         </Button>
       </Card>
     );

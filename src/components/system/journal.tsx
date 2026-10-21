@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { cn } from "@/lib/utils";
 
 export type JournalEntry = {
@@ -29,6 +30,7 @@ export function Journal({ entries, className }: { entries: JournalEntry[]; class
           <p className="min-w-0 text-footnote">
             {entry.href ? (
               <Link
+                transitionTypes={NAV_FORWARD}
                 href={entry.href}
                 className="font-mono font-semibold underline decoration-rule-strong underline-offset-4 hover:decoration-foreground"
               >
