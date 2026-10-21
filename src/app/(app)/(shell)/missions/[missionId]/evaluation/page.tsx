@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Pip } from "@/components/brand/pip";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { CellMeter } from "@/components/system/cell-meter";
@@ -43,6 +44,7 @@ export default async function MissionEvaluationPage({
   const scored = view.criteria.reduce((sum, c) => sum + c.score, 0);
   const available = view.criteria.reduce((sum, c) => sum + c.maxScore, 0);
   const verdict = VERDICT[view.outcome];
+  const passed = view.outcome === "strong" || view.outcome === "pass";
   const inPlay = view.mission.cadence === "weekly" ? overview.weekly : overview.daily;
   const unread = view.links.filter((link) => link.note);
   const read = view.links.filter((link) => link.files.length > 0);
@@ -57,12 +59,15 @@ export default async function MissionEvaluationPage({
       />
 
       <div className="rounded-lg border border-rule bg-window p-5 shadow-window">
-        <div className="flex items-baseline justify-between gap-4">
-          <p className="text-title">{verdict.label}</p>
-          <p className="font-mono text-2xl font-semibold tabular-nums">
-            {formatPoints(scored)}
-            <span className="text-callout text-muted-foreground">/{available}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          <Pip mood={passed ? "pass" : "notYet"} size={64} />
+          <div className="flex min-w-0 flex-1 items-baseline justify-between gap-4">
+            <p className="text-title">{verdict.label}</p>
+            <p className="font-mono text-2xl font-semibold tabular-nums">
+              {formatPoints(scored)}
+              <span className="text-callout text-muted-foreground">/{available}</span>
+            </p>
+          </div>
         </div>
         <CellMeter
           value={view.score}
@@ -70,7 +75,9 @@ export default async function MissionEvaluationPage({
           animate
           className="mt-4 [&>span]:h-4"
         />
-        <p className="mt-3 text-callout text-muted-foreground">{verdict.line}</p>
+        <p className="mt-4 rounded-lg rounded-tl-xs bg-signal-soft px-3.5 py-2.5 text-callout">
+          {verdict.line}
+        </p>
       </div>
 
       <ScreenSection title="Scores">

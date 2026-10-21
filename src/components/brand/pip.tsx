@@ -247,7 +247,7 @@ export function PipSays({
       <Pip mood={mood} size={size} />
       <div
         className={cn(
-          "min-w-0 flex-1 rounded-[14px] rounded-bl-xs px-3.5 py-2.5 text-callout",
+          "min-w-0 flex-1 rounded-lg rounded-bl-xs px-3.5 py-2.5 text-callout",
           tone === "signal" ? "bg-signal-soft text-foreground" : "border border-rule bg-window",
         )}
       >

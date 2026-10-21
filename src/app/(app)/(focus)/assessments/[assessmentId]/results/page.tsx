@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PipSays } from "@/components/brand/pip";
 import { NAV_BACK } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { Button } from "@/components/ui/button";
 import { getAssessmentResults } from "@/server/queries/assessments";
 import { requireLearner } from "@/server/session";
 
-import { AnswerList, AnswerStrip, Misconceptions, SkillList } from "./review";
+import { AnswerList, AnswerStrip, Misconceptions, SkillList, tallyAnswers } from "./review";
 
 export const metadata: Metadata = { title: "Results" };
 
@@ -39,6 +40,8 @@ export default async function AssessmentResultsPage({
             </Button>
           }
         />
+
+        <Verdict kind={assessment.kind} outcome={review.outcome} tally={tallyAnswers(review.answers)} />
 
         <AnswerStrip answers={review.answers} />
 
@@ -75,6 +78,42 @@ export default async function AssessmentResultsPage({
         </div>
       </footer>
     </>
+  );
+}
+
+/**
+ * Pip's one-line read of the result. A diagnostic measures rather than judges, so it gets no
+ * verdict, just where the learner starts. "Not yet" is said plainly and never as a failure.
+ */
+function Verdict({
+  kind,
+  outcome,
+  tally,
+}: {
+  kind: string;
+  outcome: "strong" | "pass" | "partial" | "fail";
+  tally: { right: number; partly: number; total: number };
+}) {
+  const counted = `${tally.right} of ${tally.total} right${tally.partly > 0 ? `, ${tally.partly} partly right` : ""}.`;
+  if (kind === "diagnostic") {
+    return (
+      <PipSays className="mb-5">
+        That&apos;s your starting point: {counted} Everything that comes next is pitched from here.
+      </PipSays>
+    );
+  }
+  if (outcome === "strong" || outcome === "pass") {
+    return (
+      <PipSays mood="pass" className="mb-5">
+        That holds up. {counted}
+      </PipSays>
+    );
+  }
+  return (
+    <PipSays mood="notYet" className="mb-5">
+      Not yet. {counted} The misses below are the next thing to work on, and they count as evidence, not
+      against you.
+    </PipSays>
   );
 }
 
