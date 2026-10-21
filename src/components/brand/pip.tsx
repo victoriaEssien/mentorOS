@@ -43,7 +43,6 @@ export function Pip({
   className?: string;
 }) {
   const full = frame === "full";
-  const hop = mood === "pass" && full;
 
   return (
     <svg
@@ -55,6 +54,21 @@ export function Pip({
       aria-hidden={label ? undefined : true}
       className={cn("shrink-0 overflow-visible text-foreground", className)}
     >
+      <PipShapes mood={mood} frame={frame} />
+    </svg>
+  );
+}
+
+/**
+ * Pip's drawing without its own <svg>, in a 120-unit box, for illustrations that place Pip inside
+ * a larger SVG (scale and translate the group that holds it).
+ */
+export function PipShapes({ mood = "idle", frame = "full" }: { mood?: PipMood; frame?: "full" | "body" }) {
+  const full = frame === "full";
+  const hop = mood === "pass" && full;
+
+  return (
+    <>
       <g className={cn(hop && "animate-pip-hop motion-reduce:animate-none")}>
         {full ? (
           <>
@@ -75,7 +89,7 @@ export function Pip({
         <Face mood={mood} />
       </g>
       {full ? <Around mood={mood} /> : null}
-    </svg>
+    </>
   );
 }
 

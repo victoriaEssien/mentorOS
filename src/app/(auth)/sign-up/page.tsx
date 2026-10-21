@@ -20,6 +20,17 @@ export default function SignUpPage() {
       <Suspense fallback={<SignUpPanel />}>
         <SignUpGate />
       </Suspense>
+      <p className="mt-5 text-center text-caption text-muted-foreground">
+        By creating an account, you agree to the{" "}
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+          terms of service
+        </Link>{" "}
+        and the{" "}
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          privacy policy
+        </Link>
+        .
+      </p>
       <p className="mt-7 text-center text-callout text-muted-foreground">
         Already have an account?{" "}
         <Link href="/sign-in" className="font-semibold text-foreground underline underline-offset-4">
