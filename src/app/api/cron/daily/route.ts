@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { env } from "@/lib/env";
 import { runDailyEmails } from "@/server/email/daily";
+import { pruneThrottle } from "@/server/throttle";
 
 // A run sends at most DAILY_SEND_CAP emails, a few at a time.
 export const maxDuration = 300;
@@ -14,7 +15,8 @@ export async function GET(request: Request) {
   if (!authorized(request.headers.get("authorization"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return Response.json(await runDailyEmails());
+  const emails = await runDailyEmails();
+  return Response.json({ ...emails, throttleCountersPruned: await pruneThrottle() });
 }
 
 function authorized(header: string | null): boolean {

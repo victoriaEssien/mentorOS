@@ -71,6 +71,17 @@ export const auth = betterAuth({
         }
       : {}),
   },
+  // The app signs in, signs up and handles passwords through server actions, which carry their
+  // own limits. Closing the same routes over HTTP leaves no unlimited way around them. OAuth
+  // callbacks and the emailed links (verify-email, reset-password/<token>) stay open.
+  disabledPaths: [
+    "/sign-in/email",
+    "/sign-up/email",
+    "/request-password-reset",
+    "/reset-password",
+    "/change-password",
+    "/send-verification-email",
+  ],
   // nextCookies must stay last so cookies set in server actions reach the browser.
   plugins: [nextCookies()],
 });

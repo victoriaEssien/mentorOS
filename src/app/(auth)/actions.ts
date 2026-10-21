@@ -7,6 +7,16 @@ import { z } from "zod";
 
 import { auth, socialProviders, type SocialProvider } from "@/lib/auth";
 import { safeNext } from "@/lib/safe-next";
+import { clientAddress, hasRoom, take, throttleKey, type Limit } from "@/server/throttle";
+
+// Better Auth's own rate limit only covers its HTTP routes, and those are closed (disabledPaths in
+// src/lib/auth.ts), so these are the limits that hold.
+/** Wrong passwords per network address, and per account so a spread-out attack still stops. */
+const SIGN_IN_MISSES_PER_ADDRESS: Limit = { max: 20, perSeconds: 15 * 60 };
+const SIGN_IN_MISSES_PER_ACCOUNT: Limit = { max: 10, perSeconds: 15 * 60 };
+/** Each new account and each reset request sends an email. */
+const SIGN_UPS_PER_ADDRESS: Limit = { max: 5, perSeconds: 60 * 60 };
+const RESET_REQUESTS_PER_ADDRESS: Limit = { max: 10, perSeconds: 60 * 60 };
 
 export type AuthField = "name" | "email" | "password";
 
@@ -81,6 +91,9 @@ export async function signUpAction(_previous: AuthFormState, formData: FormData)
 
   const parsed = signUpSchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
+  if (!(await take(throttleKey("sign-up", await clientAddress()), SIGN_UPS_PER_ADDRESS))) {
+    return { error: "Too many new accounts from this network. Try again in an hour.", values };
+  }
 
   try {
     // The confirmation email's link lands on Today, which says the address is confirmed.
@@ -103,9 +116,24 @@ export async function signInAction(_previous: AuthFormState, formData: FormData)
   const parsed = signInSchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
 
+  // Only wrong passwords count, so signing in often never locks anyone out.
+  const address = throttleKey("sign-in:address", await clientAddress());
+  const account = throttleKey("sign-in:account", parsed.data.email);
+  const room = await Promise.all([
+    hasRoom(address, SIGN_IN_MISSES_PER_ADDRESS),
+    hasRoom(account, SIGN_IN_MISSES_PER_ACCOUNT),
+  ]);
+  if (room.includes(false)) return { error: "Too many tries. Wait 15 minutes, then try again.", values };
+
   try {
     await auth.api.signInEmail({ body: parsed.data, headers: await headers() });
   } catch (error) {
+    if (error instanceof APIError && error.body?.code === "INVALID_EMAIL_OR_PASSWORD") {
+      await Promise.all([
+        take(address, SIGN_IN_MISSES_PER_ADDRESS),
+        take(account, SIGN_IN_MISSES_PER_ACCOUNT),
+      ]);
+    }
     return { error: describe(error), values };
   }
 
@@ -149,6 +177,10 @@ export async function requestPasswordResetAction(
   const address = String(formData.get("email") ?? "").trim();
   const parsed = email.safeParse(address);
   if (!parsed.success) return { error: "Enter the email you signed up with.", email: address };
+  // Per network address, so the answer still says nothing about whether the account exists.
+  if (!(await take(throttleKey("reset-request", await clientAddress()), RESET_REQUESTS_PER_ADDRESS))) {
+    return { error: "Too many reset requests from this network. Try again in an hour.", email: address };
+  }
 
   try {
     await auth.api.requestPasswordReset({
