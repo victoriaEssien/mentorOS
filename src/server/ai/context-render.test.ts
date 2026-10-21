@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveMomentum, renderLearnerContext, type LearnerContext } from "./context-render";
+import { deriveMomentum, missionPoints, renderLearnerContext, type LearnerContext } from "./context-render";
 
 const base: LearnerContext = {
   userId: "u1",
@@ -113,5 +113,66 @@ describe("renderLearnerContext", () => {
     expect(text).toContain("- and 10 more");
     expect(text).toContain("mistake 7");
     expect(text).not.toContain("mistake 8");
+  });
+});
+
+describe("missionPoints", () => {
+  const criteria = [
+    { key: "accuracy", maxScore: 10 },
+    { key: "checks", maxScore: 10 },
+  ];
+
+  it("totals each criterion against its maximum", () => {
+    expect(
+      missionPoints(
+        {
+          criteria: [
+            { key: "accuracy", score: 5 },
+            { key: "checks", score: 3 },
+          ],
+        },
+        criteria,
+      ),
+    ).toEqual({
+      scored: 8,
+      available: 20,
+      criteria: [
+        { key: "accuracy", score: 5, max: 10 },
+        { key: "checks", score: 3, max: 10 },
+      ],
+    });
+  });
+
+  it("scores a criterion the evaluation skipped as zero", () => {
+    expect(missionPoints({ criteria: [{ key: "accuracy", score: 7 }] }, criteria)?.scored).toBe(7);
+  });
+
+  it("is null without stored criteria or mission criteria", () => {
+    expect(missionPoints({ outcome: "pass" }, criteria)).toBeNull();
+    expect(missionPoints({ criteria: [] }, [])).toBeNull();
+    expect(missionPoints(null, criteria)).toBeNull();
+  });
+
+  it("lets the mentor see where a mission lost its marks", () => {
+    const text = renderLearnerContext({
+      ...base,
+      recentMissions: [
+        {
+          title: "Clean an order log",
+          outcome: "partial",
+          completedAt: null,
+          points: missionPoints(
+            {
+              criteria: [
+                { key: "accuracy", score: 5 },
+                { key: "checks", score: 3 },
+              ],
+            },
+            criteria,
+          ),
+        },
+      ],
+    });
+    expect(text).toContain("- Clean an order log: partial, 8/20 (accuracy 5/10, checks 3/10)");
   });
 });

@@ -49,6 +49,8 @@ function Inlines({ parts }: { parts: Inline[] }) {
       <strong key={index} className="font-semibold">
         {part.text}
       </strong>
+    ) : part.kind === "italic" ? (
+      <em key={index}>{part.text}</em>
     ) : (
       part.text
     ),

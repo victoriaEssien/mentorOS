@@ -21,6 +21,18 @@ describe("parseInline", () => {
     ]);
   });
 
+  it("reads *italic* but leaves asterisks inside formulas alone", () => {
+    expect(parseInline("A check like *and* on one range")).toEqual([
+      { kind: "text", text: "A check like " },
+      { kind: "italic", text: "and" },
+      { kind: "text", text: " on one range" },
+    ]);
+    expect(parseInline("Use B2*$E$1 or units*price, and 2 * 3 * 4")).toEqual([
+      { kind: "text", text: "Use B2*$E$1 or units*price, and 2 * 3 * 4" },
+    ]);
+    expect(parseInline("**bold** stays bold")[0]).toEqual({ kind: "bold", text: "bold" });
+  });
+
   it("leaves HTML as text", () => {
     expect(parseInline("<script>alert(1)</script>")).toEqual([
       { kind: "text", text: "<script>alert(1)</script>" },

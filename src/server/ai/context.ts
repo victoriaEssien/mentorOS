@@ -19,7 +19,13 @@ import {
 } from "@/db/schema";
 import type { Outcome } from "@/server/learning/difficulty";
 
-import { deriveMomentum, WEAK_ABILITY, WEAK_MIN_CONFIDENCE, type LearnerContext } from "./context-render";
+import {
+  deriveMomentum,
+  missionPoints,
+  WEAK_ABILITY,
+  WEAK_MIN_CONFIDENCE,
+  type LearnerContext,
+} from "./context-render";
 
 export * from "./context-render";
 
@@ -63,6 +69,7 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
         objective: mission.objective,
         status: mission.status,
         updatedAt: mission.updatedAt,
+        criteria: mission.evaluationCriteria,
       })
       .from(mission)
       .where(eq(mission.userId, userId))
@@ -95,7 +102,7 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
       .limit(8),
   ]);
 
-  const [pathItems, missionOutcomes] = await Promise.all([
+  const [pathItems, missionEvaluations] = await Promise.all([
     path
       ? db
           .select({
@@ -109,7 +116,7 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
           .where(eq(learningPathItem.pathId, path.id))
           .orderBy(learningPathItem.order)
       : Promise.resolve([]),
-    outcomesByMission(missions.map((m) => m.id)),
+    latestMissionEvaluations(missions.map((m) => m.id)),
   ]);
 
   const current = missions.find((m) => (ACTIVE_MISSION as readonly string[]).includes(m.status)) ?? null;
@@ -148,11 +155,15 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
       : null,
     recentMissions: missions
       .filter((m) => m.status === "evaluated" || m.status === "skipped")
-      .map((m) => ({
-        title: m.title,
-        outcome: missionOutcomes.get(m.id) ?? null,
-        completedAt: m.updatedAt.toISOString(),
-      })),
+      .map((m) => {
+        const latest = missionEvaluations.get(m.id);
+        return {
+          title: m.title,
+          outcome: latest?.outcome ?? null,
+          completedAt: m.updatedAt.toISOString(),
+          points: latest ? missionPoints(latest.result, m.criteria) : null,
+        };
+      }),
     recentAssessments: attempts.map((a) => ({
       title: a.title,
       kind: a.kind,
@@ -163,18 +174,27 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
   };
 }
 
-async function outcomesByMission(missionIds: string[]): Promise<Map<string, Outcome>> {
+/** Each mission's latest evaluation: its outcome and the stored result its points come from. */
+async function latestMissionEvaluations(
+  missionIds: string[],
+): Promise<Map<string, { outcome: Outcome; result: unknown }>> {
   if (missionIds.length === 0) return new Map();
   const rows = await db
-    .select({ missionId: missionSubmission.missionId, outcome: evaluation.outcome })
+    .select({
+      missionId: missionSubmission.missionId,
+      outcome: evaluation.outcome,
+      result: evaluation.result,
+    })
     .from(evaluation)
     .innerJoin(missionSubmission, eq(evaluation.submissionId, missionSubmission.id))
     .where(inArray(missionSubmission.missionId, missionIds))
     .orderBy(desc(evaluation.createdAt));
 
-  const outcomes = new Map<string, Outcome>();
-  for (const row of rows) if (!outcomes.has(row.missionId)) outcomes.set(row.missionId, row.outcome);
-  return outcomes;
+  const latest = new Map<string, { outcome: Outcome; result: unknown }>();
+  for (const row of rows) {
+    if (!latest.has(row.missionId)) latest.set(row.missionId, { outcome: row.outcome, result: row.result });
+  }
+  return latest;
 }
 
 /**

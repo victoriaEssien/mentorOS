@@ -1,11 +1,11 @@
 /**
  * The small Markdown subset model-written text uses here: paragraphs, bullet and numbered lists,
- * fenced code blocks, **bold** and `inline code`. Parsed into plain data and rendered by React,
+ * fenced code blocks, **bold**, *italic* and `inline code`. Parsed into plain data and rendered by React,
  * so model output can never become HTML. Links keep only their text: a URL a model wrote may not
  * exist, so it never becomes something to tap.
  */
 
-export type Inline = { kind: "text" | "bold" | "code"; text: string };
+export type Inline = { kind: "text" | "bold" | "italic" | "code"; text: string };
 
 export type Block =
   | { kind: "paragraph"; lines: Inline[][] }
@@ -71,7 +71,10 @@ export function parseMarkdown(source: string): Block[] {
 
 export function parseInline(text: string): Inline[] {
   const parts: Inline[] = [];
-  const pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\))/g;
+  // *Italic* only when its asterisks aren't attached to a word on the outside, so a formula like
+  // B2*$E$1 or units*price stays as written.
+  const pattern =
+    /(`[^`\n]+`|\*\*[^*\n]+\*\*|(?<![\w*])\*(?![\s*])[^*\n]+?(?<![\s*])\*(?![\w*])|\[[^\]\n]+\]\([^)\s]+\))/g;
   let last = 0;
   for (const match of text.matchAll(pattern)) {
     if (match.index > last) parts.push({ kind: "text", text: text.slice(last, match.index) });
@@ -81,7 +84,9 @@ export function parseInline(text: string): Inline[] {
         ? { kind: "code", text: token.slice(1, -1) }
         : token.startsWith("[")
           ? { kind: "text", text: token.slice(1, token.indexOf("](")) }
-          : { kind: "bold", text: token.slice(2, -2) },
+          : token.startsWith("**")
+            ? { kind: "bold", text: token.slice(2, -2) }
+            : { kind: "italic", text: token.slice(1, -1) },
     );
     last = match.index + token.length;
   }

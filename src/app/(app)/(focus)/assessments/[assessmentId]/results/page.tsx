@@ -44,8 +44,10 @@ export default async function AssessmentResultsPage({
 
         <ScreenSection title="Where you stand">
           <p className="-mt-1 mb-3 text-footnote text-muted-foreground">
-            First estimates, from one assessment. A hatched meter means I need more evidence before I&apos;d
-            stand behind it.
+            {assessment.kind === "diagnostic"
+              ? "First estimates, from one assessment."
+              : "Your estimates now, with this check's answers counted in."}{" "}
+            A hatched meter means I need more evidence before I&apos;d stand behind it.
           </p>
           <SkillList skills={review.skills} />
         </ScreenSection>

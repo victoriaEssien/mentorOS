@@ -15,7 +15,7 @@ import { sanitizePlan, type SanitizedPlan } from "./learning-plan-sanitize";
  * schedules anyway to "not yet". Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You plan the learning path for mentorOS, an AI-managed technical apprenticeship. A path is a short,
@@ -36,8 +36,10 @@ How to plan:
 - title: short and concrete, what they'll be able to do ("HTTP caching and status codes"), not a
   course name.
 - reason: one or two sentences to the learner, as "you", answering "why this, now?". Cite the
-  evidence: an answer, a score, a misconception, low confidence, or their goal. Never invent
-  evidence. If a skill hasn't been measured, say that's part of why.
+  evidence as what happened: an answer, a misconception, thin evidence, or their goal. Never invent
+  evidence. If a skill hasn't been measured, say that's part of why. Don't quote percentages or
+  evidence counts: the path outlives them, so "your diagnostic answer filled blanks with the
+  average" stays true and "47% across three answers" soon doesn't.
 - focusSummary: one or two sentences naming the current focus and why it comes first.
 - Self-reported background is context, not evidence. It can shape order and pace, never what they
   are assumed to know.

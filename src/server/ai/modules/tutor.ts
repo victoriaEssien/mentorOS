@@ -12,7 +12,7 @@ import { callSettings, models, modelId } from "../provider";
  * output changes no learner state, so it is plain text rather than a structured object.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You are the tutor inside mentorOS, an AI-managed technical apprenticeship. You explain one
@@ -25,6 +25,8 @@ How to explain:
   a query or a situation from their track, kept short. Then the most common misunderstanding and
   why it's wrong.
 - If their recent mistakes touch this concept, address that misunderstanding directly.
+- Recorded feedback can be wrong about the subject. If a technical claim in it is wrong, say so
+  plainly rather than repeat it.
 - End with one short question that checks understanding without giving the answer away.
 - Under 250 words. Markdown is fine: short paragraphs, a list if it helps, code in fenced blocks.
 - Plain and direct. No preamble ("Great question!"), no em dashes.

@@ -10,6 +10,42 @@ import { abilityBand, confidenceBand } from "@/server/learning/skill-estimate";
 export type MentorTone = "direct" | "balanced" | "supportive";
 export type Momentum = "struggling" | "steady" | "cruising";
 
+/** A mission's points from its latest evaluation, per criterion and in total. */
+export type MissionPoints = {
+  scored: number;
+  available: number;
+  criteria: { key: string; score: number; max: number }[];
+};
+
+/**
+ * Points per criterion from a stored submission evaluation, against the mission's own criteria
+ * (which carry the maximums). Null when either side is missing; a criterion the evaluation
+ * skipped scores zero, as it did when the evaluation was graded.
+ */
+export function missionPoints(
+  result: unknown,
+  criteria: readonly { key: string; maxScore: number }[],
+): MissionPoints | null {
+  const graded = (result as { criteria?: unknown } | null)?.criteria;
+  if (!Array.isArray(graded) || criteria.length === 0) return null;
+  const scoreByKey = new Map<string, number>();
+  for (const entry of graded) {
+    if (entry && typeof entry.key === "string" && typeof entry.score === "number") {
+      scoreByKey.set(entry.key, entry.score);
+    }
+  }
+  const rows = criteria.map((criterion) => ({
+    key: criterion.key,
+    score: scoreByKey.get(criterion.key) ?? 0,
+    max: criterion.maxScore,
+  }));
+  return {
+    scored: rows.reduce((sum, row) => sum + row.score, 0),
+    available: rows.reduce((sum, row) => sum + row.max, 0),
+    criteria: rows,
+  };
+}
+
 export type LearnerContext = {
   userId: string;
   name: string;
@@ -40,7 +76,13 @@ export type LearnerContext = {
     items: { title: string; reason: string; status: string; skill: string | null }[];
   } | null;
   currentMission: { id: string; title: string; type: string; objective: string; status: string } | null;
-  recentMissions: { title: string; outcome: Outcome | null; completedAt: string | null }[];
+  recentMissions: {
+    title: string;
+    outcome: Outcome | null;
+    completedAt: string | null;
+    /** Where the marks went in its latest evaluation, so "why did I get 16/40?" has an answer. */
+    points: MissionPoints | null;
+  }[];
   recentAssessments: { title: string; kind: string; score: number | null; completedAt: string | null }[];
   /** Weaknesses and misconceptions from recent evaluations, newest first. */
   recentMistakes: string[];
@@ -160,7 +202,12 @@ export function renderLearnerContext(context: LearnerContext): string {
     lines.push("");
     lines.push("RECENT MISSIONS");
     for (const mission of context.recentMissions.slice(0, LIMITS.missions)) {
-      lines.push(`- ${mission.title}: ${mission.outcome ?? "not evaluated"}`);
+      const points = mission.points
+        ? `, ${mission.points.scored}/${mission.points.available} (${mission.points.criteria
+            .map((criterion) => `${criterion.key} ${criterion.score}/${criterion.max}`)
+            .join(", ")})`
+        : "";
+      lines.push(`- ${mission.title}: ${mission.outcome ?? "not evaluated"}${points}`);
     }
   }
 

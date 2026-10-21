@@ -21,10 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { askForChangeAction, planPathAction, type PlanState } from "./actions";
 
+// True on every track, so a data analyst isn't offered "backend work".
 const EXAMPLES = [
-  "I want to focus on backend work",
-  "Can we move on to system design?",
   "Less theory, more building",
+  "I'm ready for something harder",
+  "Go back over what I got wrong",
 ];
 
 /**
