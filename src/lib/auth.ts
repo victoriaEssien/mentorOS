@@ -33,7 +33,14 @@ export const auth = betterAuth({
       ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
       : {}),
     ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
-      ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+            // Let people with more than one Google account choose, instead of using whichever is open.
+            prompt: "select_account" as const,
+          },
+        }
       : {}),
   },
   // nextCookies must stay last so cookies set in server actions reach the browser.

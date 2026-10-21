@@ -117,7 +117,8 @@ export async function socialSignInAction(formData: FormData) {
       provider: provider as SocialProvider,
       callbackURL: safeNext(formData.get("next")),
       newUserCallbackURL: "/onboarding",
-      errorCallbackURL: "/sign-in?error=oauth",
+      // Better Auth adds its own ?error=<code>, which the sign-in page turns into a message.
+      errorCallbackURL: "/sign-in",
     },
     headers: await headers(),
   });

@@ -44,6 +44,12 @@ Minimum `.env.local` to boot: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH
 BETTER_AUTH_URL=http://localhost:3210 NEXT_PUBLIC_APP_URL=http://localhost:3210 pnpm dev -p 3210
 ```
 
+### Google sign-in
+
+1. In Google Cloud, set up the OAuth consent screen (External). While it's in testing, add yourself as a test user.
+2. Create an OAuth client ID of type "Web application". Its authorised redirect URI is your `BETTER_AUTH_URL` plus `/api/auth/callback/google`, for example `http://localhost:3000/api/auth/callback/google`. Add your live domain's too.
+3. Put the client ID and secret in `.env.local` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart `pnpm dev`. "Continue with Google" appears on sign-in and sign-up.
+
 ### Live AI calls cost money
 
 Every assessment, grade, plan, mission and mentor reply is a paid model call on your OpenAI account. Each call has an output cap, so a stuck request can't run up a bill, and each logs one `ai.generation` line with its model and token counts. Unit tests never call a model. Roughly, per call:

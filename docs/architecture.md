@@ -110,6 +110,10 @@ Today picks the single next action in `src/lib/today.ts`: finish the diagnostic,
 
 Better Auth with the Drizzle adapter. Email/password is on; GitHub and Google switch on when their env vars exist.
 
+- Google asks which account to use (`prompt: "select_account"`).
+- A Google or GitHub sign-in never attaches itself to an existing email/password account whose address isn't verified (Better Auth's `requireLocalEmailVerified` default). Otherwise anyone could register someone else's address first and inherit their sign-in. The sign-in page tells that person to use their password instead.
+- OAuth failures come back to `/sign-in?error=<code>`, and `oauthErrorMessage` turns the code into words.
+
 - `src/proxy.ts` is an optimistic cookie check for app routes (Next 16 renamed `middleware` to `proxy`).
 - Pages do the real check with `requireUser()` or `requireLearner()` from `src/server/session.ts`. `requireLearner()` also sends anyone who hasn't finished onboarding to `/onboarding`.
 - Server code reads the session with `getSession()` from `src/lib/auth.ts` (memoised per request).

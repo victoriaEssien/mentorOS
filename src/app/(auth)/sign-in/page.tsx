@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ProviderButtons } from "@/components/auth/provider-buttons";
 import { FormAlert } from "@/components/form/form-alert";
 import { socialProviders } from "@/lib/auth";
+import { oauthErrorMessage } from "@/lib/oauth-errors";
 import { safeNext } from "@/lib/safe-next";
 import { redirectIfSignedIn } from "@/server/session";
 
@@ -36,15 +37,19 @@ export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
 async function SignInGate({ searchParams }: Pick<PageProps<"/sign-in">, "searchParams">) {
   await redirectIfSignedIn();
   const { next, error } = await searchParams;
-  return <SignInPanel destination={safeNext(next)} oauthFailed={error === "oauth"} />;
+  return <SignInPanel destination={safeNext(next)} oauthError={oauthErrorMessage(error)} />;
 }
 
-function SignInPanel({ destination, oauthFailed = false }: { destination: string; oauthFailed?: boolean }) {
+function SignInPanel({
+  destination,
+  oauthError = null,
+}: {
+  destination: string;
+  oauthError?: string | null;
+}) {
   return (
     <>
-      {oauthFailed ? (
-        <FormAlert className="mb-5">That sign-in didn&apos;t finish. Try again, or use your email.</FormAlert>
-      ) : null}
+      {oauthError ? <FormAlert className="mb-5">{oauthError}</FormAlert> : null}
       <ProviderButtons providers={socialProviders} next={destination} />
       <SignInForm next={destination} />
     </>
