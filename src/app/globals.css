@@ -239,6 +239,12 @@
 }
 
 /* Low-confidence evidence: the cell is filled, but hatched rather than solid. */
+/* The grid paper under the path's steps. */
+@utility bg-dots {
+  background-image: radial-gradient(var(--rule-strong) 1.1px, transparent 1.1px);
+  background-size: 18px 18px;
+}
+
 @utility bg-hatch {
   background-image: repeating-linear-gradient(-45deg, currentColor 0 1.5px, transparent 1.5px 4.5px);
 }
