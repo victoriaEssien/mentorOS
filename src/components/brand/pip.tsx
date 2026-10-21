@@ -230,7 +230,7 @@ function Around({ mood }: { mood: PipMood }) {
  */
 export function PipSays({
   mood = "idle",
-  size = 52,
+  size = 64,
   tone = "signal",
   className,
   children,

@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 
+import { Pip } from "@/components/brand/pip";
 import { FormAlert } from "@/components/form/form-alert";
 import { SubmitButton } from "@/components/form/submit-button";
-import { CellMeter } from "@/components/system/cell-meter";
 
 import { writeDiagnosticAction } from "./actions";
 
@@ -17,28 +17,33 @@ export function WriteDiagnosticPanel() {
 
   if (pending) {
     return (
-      <div role="status" className="rounded-lg border border-rule bg-window p-5 shadow-window">
-        <CellMeter
-          value={1}
-          label="Writing your diagnostic"
-          animate
-          className="[&>span]:h-3 [&>span]:[animation-direction:alternate] [&>span]:[animation-iteration-count:infinite]"
-        />
-        <p className="mt-5 text-headline">Writing your diagnostic</p>
-        <p className="mt-1 text-callout text-muted-foreground">
-          Real questions across your tracks, pitched to find your level. This takes about a minute.
-        </p>
+      <div
+        role="status"
+        className="flex items-start gap-4 rounded-lg border border-rule bg-window p-5 shadow-window"
+      >
+        <Pip mood="thinking" size={52} />
+        <div className="min-w-0">
+          <p className="text-headline">Writing your diagnostic</p>
+          <p className="mt-1 text-callout text-muted-foreground">
+            Real questions across your tracks, pitched to find your level. This takes about a minute.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <form action={formAction} className="rounded-lg border border-rule bg-window p-5 shadow-window">
-      <p className="text-headline">Your diagnostic isn&apos;t written yet</p>
-      <p className="mt-1 text-callout text-muted-foreground">
-        It couldn&apos;t be written when you signed up. Everything else starts from it: your path, your
-        missions, every estimate.
-      </p>
+      <div className="flex items-start gap-4">
+        <Pip size={52} />
+        <div className="min-w-0">
+          <p className="text-headline">Your diagnostic isn&apos;t written yet</p>
+          <p className="mt-1 text-callout text-muted-foreground">
+            It couldn&apos;t be written when you signed up. Everything else starts from it: your path, your
+            missions, every estimate.
+          </p>
+        </div>
+      </div>
       {state.error ? <FormAlert className="mt-4">{state.error}</FormAlert> : null}
       <SubmitButton className="mt-4 w-full">Write my diagnostic</SubmitButton>
     </form>
