@@ -14,7 +14,11 @@ import {
   userTrack,
 } from "@/db/schema";
 import { buildLearnerContext } from "@/server/ai/context";
-import { generateMission, PROMPT_VERSION } from "@/server/ai/modules/mission-generator";
+import {
+  generateMission,
+  PROMPT_VERSION,
+  type GenerateMissionInput,
+} from "@/server/ai/modules/mission-generator";
 import { getPrerequisiteEdges, getTrackSkills } from "@/server/queries/skills";
 
 import { planDifficulty, type Outcome } from "./difficulty";
@@ -58,6 +62,79 @@ export async function assignMission(
   const inPlay = await getMissionInPlay(userId, cadence);
   if (inPlay) return { missionId: inPlay.id, created: false };
 
+  const { input, pathItemId, difficulty, idBySlug } = await missionInput(userId, cadence);
+  const { mission: generated, meta } = await generateMission(input);
+
+  const skillIds = generated.skills.flatMap((slug) => idBySlug.get(slug) ?? []);
+  const missionId = crypto.randomUUID();
+
+  try {
+    await db.batch([
+      db.insert(mission).values({
+        id: missionId,
+        userId,
+        pathItemId,
+        type: generated.type,
+        cadence,
+        title: generated.title,
+        objective: generated.objective,
+        reason: generated.reason,
+        instructions: generated.instructions,
+        requiredKnowledge: generated.requiredKnowledge,
+        deliverable: generated.deliverable,
+        evaluationCriteria: generated.evaluationCriteria,
+        resources: generated.resources.map(({ url, note, ...resource }) => ({
+          ...resource,
+          ...(url ? { url } : {}),
+          ...(note ? { note } : {}),
+        })),
+        estimatedMinutes: generated.estimatedMinutes,
+        difficulty,
+        dueAt: new Date(now.getTime() + (cadence === "daily" ? DAY_MS : 7 * DAY_MS)),
+        generatedBy: `${meta.model}/${PROMPT_VERSION}`,
+        createdAt: now,
+      }),
+      ...(skillIds.length > 0
+        ? [db.insert(missionSkill).values(skillIds.map((skillId) => ({ missionId, skillId })))]
+        : []),
+    ]);
+  } catch (error) {
+    // Another request assigned one first: hand back that one.
+    if (isUniqueViolation(error)) {
+      const winner = await getMissionInPlay(userId, cadence);
+      if (winner) return { missionId: winner.id, created: false };
+    }
+    throw error;
+  }
+
+  console.info(
+    JSON.stringify({
+      event: "mission.assigned",
+      missionId,
+      cadence,
+      type: generated.type,
+      difficulty,
+      mode: input.difficulty.mode,
+    }),
+  );
+  return { missionId, created: true };
+}
+
+/**
+ * What the mission generator sees for the current path item: the learner's record, the skills a
+ * mission may touch, recent missions on that skill, and the difficulty planDifficulty chose.
+ * Separate from assignMission so a model change can be checked against exactly the input
+ * production builds.
+ */
+export async function missionInput(
+  userId: string,
+  cadence: Cadence,
+): Promise<{
+  input: GenerateMissionInput;
+  pathItemId: string;
+  difficulty: number;
+  idBySlug: Map<string, string>;
+}> {
   const [current] = await db
     .select({
       id: learningPathItem.id,
@@ -109,69 +186,19 @@ export async function assignMission(
     lastDifficulty: history[0]?.difficulty ?? null,
   });
 
-  const { mission: generated, meta } = await generateMission({
-    context,
-    cadence,
-    pathItem: { title: current.title, reason: current.reason, skill: current.skillSlug },
-    difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
-    allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
-    recentMissions: history.map((h) => ({ title: h.title, outcome: h.outcome })),
-  });
-
-  const idBySlug = new Map(allowed.map((s) => [s.slug, s.id]));
-  const skillIds = generated.skills.flatMap((slug) => idBySlug.get(slug) ?? []);
-  const missionId = crypto.randomUUID();
-
-  try {
-    await db.batch([
-      db.insert(mission).values({
-        id: missionId,
-        userId,
-        pathItemId: current.id,
-        type: generated.type,
-        cadence,
-        title: generated.title,
-        objective: generated.objective,
-        reason: generated.reason,
-        instructions: generated.instructions,
-        requiredKnowledge: generated.requiredKnowledge,
-        deliverable: generated.deliverable,
-        evaluationCriteria: generated.evaluationCriteria,
-        resources: generated.resources.map(({ url, note, ...resource }) => ({
-          ...resource,
-          ...(url ? { url } : {}),
-          ...(note ? { note } : {}),
-        })),
-        estimatedMinutes: generated.estimatedMinutes,
-        difficulty: difficulty.difficulty,
-        dueAt: new Date(now.getTime() + (cadence === "daily" ? DAY_MS : 7 * DAY_MS)),
-        generatedBy: `${meta.model}/${PROMPT_VERSION}`,
-        createdAt: now,
-      }),
-      ...(skillIds.length > 0
-        ? [db.insert(missionSkill).values(skillIds.map((skillId) => ({ missionId, skillId })))]
-        : []),
-    ]);
-  } catch (error) {
-    // Another request assigned one first: hand back that one.
-    if (isUniqueViolation(error)) {
-      const winner = await getMissionInPlay(userId, cadence);
-      if (winner) return { missionId: winner.id, created: false };
-    }
-    throw error;
-  }
-
-  console.info(
-    JSON.stringify({
-      event: "mission.assigned",
-      missionId,
+  return {
+    pathItemId: current.id,
+    difficulty: difficulty.difficulty,
+    idBySlug: new Map(allowed.map((s) => [s.slug, s.id])),
+    input: {
+      context,
       cadence,
-      type: generated.type,
-      difficulty: difficulty.difficulty,
-      mode: difficulty.mode,
-    }),
-  );
-  return { missionId, created: true };
+      pathItem: { title: current.title, reason: current.reason, skill: current.skillSlug },
+      difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
+      allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
+      recentMissions: history.map((h) => ({ title: h.title, outcome: h.outcome })),
+    },
+  };
 }
 
 /** Recent missions on a skill, newest first, with each one's latest evaluated outcome. */

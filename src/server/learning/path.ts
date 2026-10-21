@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { learningPath, learningPathItem, userTrack } from "@/db/schema";
 import { buildLearnerContext } from "@/server/ai/context";
 import { AiGenerationError } from "@/server/ai/generate";
-import { planLearningPath } from "@/server/ai/modules/learning-planner";
+import { planLearningPath, type PlanLearningPathInput } from "@/server/ai/modules/learning-planner";
 import { getPrerequisiteEdges, getTaxonomy, getTrackSkills } from "@/server/queries/skills";
 
 import { blockedSkills } from "./readiness";
@@ -19,46 +19,8 @@ export async function planPath(
   userId: string,
   learnerRequest: string | null = null,
 ): Promise<{ pathId: string }> {
-  const tracks = await db
-    .select({ id: userTrack.trackId })
-    .from(userTrack)
-    .where(eq(userTrack.userId, userId));
-  const [context, trackSkills, edges, { skills }] = await Promise.all([
-    buildLearnerContext(userId),
-    getTrackSkills(tracks.map((t) => t.id)),
-    getPrerequisiteEdges(),
-    getTaxonomy(),
-  ]);
-
-  const nameById = new Map(skills.map((s) => [s.id, s.name]));
-  const nameBySlug = new Map(skills.map((s) => [s.slug, s.name]));
-  const idBySlug = new Map(skills.map((s) => [s.slug, s.id]));
-  const estimates = new Map(context.skills.map((s) => [s.slug, s]));
-
-  const blocked = blockedSkills(
-    trackSkills.map((s) => s.slug),
-    edges,
-    estimates,
-  );
-  const blockedSlugs = new Set(blocked.map((b) => b.skill));
-
-  const { plan, meta } = await planLearningPath({
-    context,
-    learnerRequest,
-    candidates: trackSkills
-      .filter((s) => !blockedSlugs.has(s.slug))
-      .map((s) => ({
-        slug: s.slug,
-        name: s.name,
-        group: nameById.get(s.parentId) ?? null,
-        estimate: estimates.get(s.slug) ?? null,
-      })),
-    blocked: blocked.map((b) => ({
-      slug: b.skill,
-      name: nameBySlug.get(b.skill) ?? b.skill,
-      waitingOn: b.missing,
-    })),
-  });
+  const { input, idBySlug } = await planInput(userId, learnerRequest);
+  const { plan, meta } = await planLearningPath(input);
   if (plan.items.length === 0) {
     throw new AiGenerationError("learning-planner", "the plan had nothing that could be scheduled now");
   }
@@ -107,11 +69,64 @@ export async function planPath(
       pathId,
       items: plan.items.length,
       deferred: plan.deferred.length,
-      blocked: blocked.length,
+      blocked: input.blocked.length,
       requested: Boolean(learnerRequest),
     }),
   );
   return { pathId };
+}
+
+/**
+ * What the planner sees for this learner now: their record, the skills it may schedule, and the
+ * ones still waiting on a prerequisite. Separate from planPath so a model change can be checked
+ * against exactly the input production builds.
+ */
+export async function planInput(
+  userId: string,
+  learnerRequest: string | null,
+): Promise<{ input: PlanLearningPathInput; idBySlug: Map<string, string> }> {
+  const tracks = await db
+    .select({ id: userTrack.trackId })
+    .from(userTrack)
+    .where(eq(userTrack.userId, userId));
+  const [context, trackSkills, edges, { skills }] = await Promise.all([
+    buildLearnerContext(userId),
+    getTrackSkills(tracks.map((t) => t.id)),
+    getPrerequisiteEdges(),
+    getTaxonomy(),
+  ]);
+
+  const nameById = new Map(skills.map((s) => [s.id, s.name]));
+  const nameBySlug = new Map(skills.map((s) => [s.slug, s.name]));
+  const estimates = new Map(context.skills.map((s) => [s.slug, s]));
+
+  const blocked = blockedSkills(
+    trackSkills.map((s) => s.slug),
+    edges,
+    estimates,
+  );
+  const blockedSlugs = new Set(blocked.map((b) => b.skill));
+
+  return {
+    idBySlug: new Map(skills.map((s) => [s.slug, s.id])),
+    input: {
+      context,
+      learnerRequest,
+      candidates: trackSkills
+        .filter((s) => !blockedSlugs.has(s.slug))
+        .map((s) => ({
+          slug: s.slug,
+          name: s.name,
+          group: nameById.get(s.parentId) ?? null,
+          estimate: estimates.get(s.slug) ?? null,
+        })),
+      blocked: blocked.map((b) => ({
+        slug: b.skill,
+        name: nameBySlug.get(b.skill) ?? b.skill,
+        waitingOn: b.missing,
+      })),
+    },
+  };
 }
 
 /** Whether the learner has a path to follow right now. */
