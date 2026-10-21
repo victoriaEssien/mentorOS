@@ -123,7 +123,8 @@ export async function gradeAttempt(
         skillSlugs: itemSkills.map((s) => s.slug),
       };
 
-      const response = responses.get(row.id)?.response as AssessmentResponse | undefined;
+      // A row can hold only hints, with no answer: that grades as a blank.
+      const response = (responses.get(row.id)?.response ?? undefined) as AssessmentResponse | undefined;
       const byRules = gradeByRules(item, response);
       if (byRules) return byRules;
 

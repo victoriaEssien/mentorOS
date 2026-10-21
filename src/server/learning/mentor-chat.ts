@@ -10,10 +10,12 @@ import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { mentorConversation, mentorMessage } from "@/db/schema";
+import { assessmentItem, learnerProfile, mentorConversation, mentorMessage } from "@/db/schema";
+import type { ItemPrompt } from "@/lib/assessment-response";
 import { buildLearnerContext } from "@/server/ai/context";
 import { streamMentorReply } from "@/server/ai/modules/mentor";
 
+import { AssessmentNotFoundError, recordHint } from "./attempts";
 import { mentorTools } from "./mentor-tools";
 
 /**
@@ -148,5 +150,66 @@ export async function replyInThread(
         await saveMessage(conversationId, responseMessage);
       },
     }),
+  });
+}
+
+const hintMessages = z
+  .array(
+    z.object({
+      role: z.enum(["user", "assistant"]),
+      parts: z.array(z.object({ type: z.literal("text"), text: z.string().max(2000) })).min(1),
+    }),
+  )
+  .min(1)
+  .max(12)
+  .refine((turns) => turns.at(-1)?.role === "user", "The last message must be the learner's.");
+
+/**
+ * A hint on one assessment question (PRD §22: hints before answers). The hint conversation lives
+ * only in the player; each request counts as one hint on that question, which lowers how much the
+ * eventual answer counts as evidence. The model gets the question, never the rubric, and no tools.
+ */
+export async function hintOnQuestion(
+  userId: string,
+  assessmentId: string,
+  itemId: string,
+  conversation: unknown,
+): Promise<Response> {
+  if (!uuid.safeParse(assessmentId).success || !uuid.safeParse(itemId).success) {
+    throw new AssessmentNotFoundError();
+  }
+  const turns = hintMessages.parse(conversation);
+
+  // Counts the hint, and fails unless the question is in this learner's open assessment.
+  await recordHint(userId, assessmentId, itemId);
+
+  const [[item], [profile]] = await Promise.all([
+    db
+      .select({ prompt: assessmentItem.prompt })
+      .from(assessmentItem)
+      .where(eq(assessmentItem.id, itemId))
+      .limit(1),
+    db
+      .select({ tone: learnerProfile.mentorTone })
+      .from(learnerProfile)
+      .where(eq(learnerProfile.userId, userId))
+      .limit(1),
+  ]);
+  const prompt = item.prompt as ItemPrompt;
+
+  const messages: UIMessage[] = turns.map((turn) => ({
+    id: crypto.randomUUID(),
+    role: turn.role,
+    parts: turn.parts,
+  }));
+  const result = await streamMentorReply({
+    mode: "hint",
+    tone: profile?.tone ?? "balanced",
+    item: { question: prompt.question, code: prompt.code, options: prompt.options },
+    messages,
+  });
+
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({ stream: result.stream, originalMessages: messages }),
   });
 }

@@ -148,7 +148,10 @@ export async function surpriseCheckIfDue(userId: string, now: Date = new Date())
  * A check on one skill the learner asked for. When the estimate rests on too little evidence it is
  * pitched as a reassessment instead.
  */
-export async function checkOnSkill(userId: string, skillSlug: string): Promise<{ assessmentId: string }> {
+export async function checkOnSkill(
+  userId: string,
+  skillSlug: string,
+): Promise<{ assessmentId: string; name: string }> {
   const [estimate] = await db
     .select({ name: skill.name, confidence: userSkill.confidence })
     .from(skill)
@@ -166,5 +169,5 @@ export async function checkOnSkill(userId: string, skillSlug: string): Promise<{
       ? `Your ${estimate.name} estimate rests on little evidence, so this checks it from angles you haven't seen.`
       : `You asked to be tested on ${estimate.name}.`,
   );
-  return { assessmentId };
+  return { assessmentId, name: estimate.name };
 }

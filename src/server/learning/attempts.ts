@@ -30,6 +30,19 @@ export class AssessmentClosedError extends Error {
 }
 
 /**
+ * Hints on one question stop here. By the fifth an answer counts for under a third as evidence
+ * (see `hintDiscount`), so more would only add model calls.
+ */
+export const MAX_HINTS_PER_QUESTION = 5;
+
+export class HintLimitError extends Error {
+  constructor() {
+    super("No more hints on this question");
+    this.name = "HintLimitError";
+  }
+}
+
+/**
  * Starts the attempt in progress, on an assessment the learner owns and hasn't handed in. The
  * partial unique index allows one open attempt, so a racing insert does nothing.
  */
@@ -108,4 +121,30 @@ export async function saveResponse(
     readState(userId, assessmentId, itemId),
   ]);
   assertOpen(state);
+}
+
+/**
+ * Counts one hint on a question (PRD §22: hints before answers). Hints don't change what an answer
+ * scores, only how much it counts as evidence (hintDiscount). Asking before answering leaves a row
+ * with hints and no response yet.
+ */
+export async function recordHint(userId: string, assessmentId: string, itemId: string): Promise<void> {
+  const [, counted, [state]] = await db.batch([
+    startAttempt(userId, assessmentId),
+    db.execute(sql`
+      insert into assessment_response (attempt_id, item_id, response, hints_used)
+      select attempt.id, item.id, null, 1
+      from assessment_attempt attempt
+      join assessment_item item on item.assessment_id = attempt.assessment_id
+      where attempt.assessment_id = ${assessmentId} and attempt.user_id = ${userId}
+        and attempt.completed_at is null and item.id = ${itemId}
+      on conflict (attempt_id, item_id) do update set hints_used = assessment_response.hints_used + 1
+        where assessment_response.hints_used < ${MAX_HINTS_PER_QUESTION}
+      returning hints_used
+    `),
+    readState(userId, assessmentId, itemId),
+  ]);
+  assertOpen(state);
+  // Open and theirs, yet nothing counted: the question already has every hint it can.
+  if (counted.rows.length === 0) throw new HintLimitError();
 }

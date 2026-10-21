@@ -58,7 +58,10 @@ export async function getAssessmentForPlayer(userId: string, assessmentId: strin
     items: items.map((item) => ({ ...item, prompt: item.prompt as ItemPrompt })),
     openAttempt,
     completedAttempt,
-    responses: Object.fromEntries(responses.map((r) => [r.itemId, r.response as AssessmentResponse])),
+    // A row without a response only holds hints asked for on an unanswered question.
+    responses: Object.fromEntries(
+      responses.flatMap((r) => (r.response ? [[r.itemId, r.response as AssessmentResponse]] : [])),
+    ),
   };
 }
 
@@ -125,7 +128,9 @@ export async function getAssessmentResults(userId: string, assessmentId: string)
 
   const result = graded.result as AttemptEvaluationResult;
   const gradeByItem = new Map(result.items.map((grade) => [grade.itemId, grade]));
-  const responseByItem = new Map(responses.map((r) => [r.itemId, r.response as AssessmentResponse]));
+  const responseByItem = new Map(
+    responses.map((r) => [r.itemId, (r.response ?? null) as AssessmentResponse | null]),
+  );
   const skillById = new Map(skills.map((s) => [s.id, s]));
 
   const answers = items.flatMap((item, index) => {

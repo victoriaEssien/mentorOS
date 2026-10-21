@@ -7,7 +7,7 @@ import { learnerProfile, userTrack } from "@/db/schema";
 import { gradeAttempt } from "./assessment-grading";
 import { checkOnSkill, surpriseCheckIfDue } from "./checks";
 import { ensureDiagnostic } from "./diagnostic";
-import { getMentorThread, replyInThread } from "./mentor-chat";
+import { getMentorThread, hintOnQuestion, replyInThread } from "./mentor-chat";
 import { assignMission, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 import { submitWork, type WorkInput } from "./submissions";
@@ -152,4 +152,17 @@ export async function mentorTurn(
   message: unknown,
 ): Promise<Response> {
   return replyInThread(userId, conversationId, message);
+}
+
+/**
+ * A hint on an assessment question, streamed (PRD §22). Counts toward the question's hints, which
+ * lower how much the answer counts as evidence; never reveals the answer.
+ */
+export async function assessmentHint(
+  userId: string,
+  assessmentId: string,
+  itemId: string,
+  conversation: unknown,
+): Promise<Response> {
+  return hintOnQuestion(userId, assessmentId, itemId, conversation);
 }

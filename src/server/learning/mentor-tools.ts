@@ -16,6 +16,16 @@ import { planPath } from "./path";
 const REPLAN_COOLDOWN_MS = 60_000;
 
 /**
+ * Every tool call carries a reason the learner sees as the step runs ("Checking your SQL evidence,
+ * because you asked why it's your focus"), so the mentor's work is visible rather than a spinner.
+ */
+const why = z
+  .string()
+  .describe(
+    "Shown to the learner under this step while it runs: why you're doing it, a few words starting lowercase, e.g. 'you asked why SQL is your focus'",
+  );
+
+/**
  * What the mentor can do, bound to one learner. Each tool reads through the queries or acts
  * through the learning layer, so the mentor never writes learner state on its own (AGENTS.md).
  * Failures come back as plain results the mentor can explain, rather than errors.
@@ -28,6 +38,7 @@ export function mentorTools(userId: string, context: LearnerContext) {
       inputSchema: z.object({
         question: z.string().describe("What to explain, in the learner's terms"),
         level: z.enum(["beginner", "intermediate", "advanced"]),
+        why,
       }),
       execute: async ({ question, level }) => ({
         explanation: await explainConcept({ context, question, level }),
@@ -36,7 +47,7 @@ export function mentorTools(userId: string, context: LearnerContext) {
 
     show_skill: tool({
       description: "Look up one skill's current estimate and its most recent evidence.",
-      inputSchema: z.object({ skill: z.string().describe("Skill slug") }),
+      inputSchema: z.object({ skill: z.string().describe("Skill slug"), why }),
       execute: async ({ skill }) => {
         const detail = await getSkillDetail(userId, skill.trim().toLowerCase());
         if (!detail) return { found: false as const };
@@ -57,18 +68,18 @@ export function mentorTools(userId: string, context: LearnerContext) {
 
     test_me: tool({
       description: "Write a short check on one skill and give the learner a link to take it.",
-      inputSchema: z.object({ skill: z.string().describe("Skill slug") }),
+      inputSchema: z.object({ skill: z.string().describe("Skill slug"), why }),
       execute: async ({ skill }) => {
         const slug = skill.trim().toLowerCase();
-        const { assessmentId } = await checkOnSkill(userId, slug);
-        return { assessmentId, skill: slug };
+        const { assessmentId, name } = await checkOnSkill(userId, slug);
+        return { assessmentId, skill: slug, name };
       },
     }),
 
     change_path: tool({
       description:
         "Replan the learning path around what the learner asked for. The planner decides what is ready; report what it decided.",
-      inputSchema: z.object({ request: z.string().describe("Their request, in their words") }),
+      inputSchema: z.object({ request: z.string().describe("Their request, in their words"), why }),
       execute: async ({ request }) => {
         const last = await getLastPlannedAt(userId);
         if (last && Date.now() - last.getTime() < REPLAN_COOLDOWN_MS) {
@@ -91,7 +102,7 @@ export function mentorTools(userId: string, context: LearnerContext) {
 
     next_mission: tool({
       description: "Get the learner's next daily mission, or the one already in play.",
-      inputSchema: z.object({}),
+      inputSchema: z.object({ why }),
       execute: async () => {
         try {
           const { missionId, created } = await assignMission(userId, "daily");

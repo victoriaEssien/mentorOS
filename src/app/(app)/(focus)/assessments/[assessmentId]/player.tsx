@@ -28,6 +28,7 @@ import { isAnswered, type AssessmentResponse, type ItemPrompt } from "@/lib/asse
 import { cn } from "@/lib/utils";
 
 import { finishAssessmentAction, saveResponseAction } from "./actions";
+import { HintSheet } from "./hint-sheet";
 
 export type PlayerItem = {
   id: string;
@@ -196,7 +197,10 @@ export function AssessmentPlayer({
         >
           <div className="flex min-h-7 items-center justify-between gap-3">
             <Badge>{itemTypeLabel(item.type)}</Badge>
-            {item.timeLimitSeconds ? <Countdown seconds={item.timeLimitSeconds} onExpire={timeUp} /> : null}
+            <span className="flex items-center gap-3">
+              {item.timeLimitSeconds ? <Countdown seconds={item.timeLimitSeconds} onExpire={timeUp} /> : null}
+              <HintSheet key={item.id} assessmentId={assessmentId} itemId={item.id} />
+            </span>
           </div>
           <h1
             className={cn(

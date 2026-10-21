@@ -91,7 +91,8 @@ export const assessmentResponse = pgTable(
     itemId: uuid()
       .notNull()
       .references(() => assessmentItem.id, { onDelete: "cascade" }),
-    response: jsonb().notNull(),
+    /** Null when the learner asked for a hint on the question but hasn't answered it yet. */
+    response: jsonb(),
     score: real(),
     /** Hints the mentor gave during this item. Affects how much the score counts. */
     hintsUsed: integer().default(0).notNull(),

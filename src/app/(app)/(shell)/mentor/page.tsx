@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { Screen, ScreenHeader } from "@/components/shell/screen";
+import { mentorThread } from "@/server/learning/loop";
+import { getPathOverview } from "@/server/queries/path";
 import { requireLearner } from "@/server/session";
+
+import { MentorChat } from "./mentor-chat";
 
 export const metadata: Metadata = { title: "Mentor" };
 
 export default async function MentorPage() {
-  await requireLearner();
+  const { user } = await requireLearner();
+  const [thread, path] = await Promise.all([mentorThread(user.id), getPathOverview(user.id)]);
+
+  const focus = path.current?.skill?.name ?? null;
+  const suggestions = [
+    focus ? `Why is ${focus} my focus right now?` : "What should I learn first?",
+    focus ? `Explain the idea behind ${focus} like I'm new to it` : "Explain how HTTP caching works",
+    focus ? `I think I understand ${focus}. Test me.` : "I think I understand SQL joins. Test me.",
+    "Can we move on to something harder?",
+  ];
 
   return (
-    <PagePlaceholder
-      title="Mentor"
-      prd="PRD §21, §22"
-      purpose="Chat with a mentor that knows your context: hints before answers, tests claimed understanding, and challenges your decisions."
-      todo={[
-        "useChat from @ai-sdk/react against /api/mentor",
-        "Conversation list from mentor_conversation",
-        "Sparring mode for architecture ideas (behaviour 15)",
-      ]}
-    />
+    // The composer rests on the dock, so the screen needs no room of its own below it.
+    <Screen className="pb-[calc(env(safe-area-inset-bottom)+4rem)] lg:pb-0">
+      <ScreenHeader title="Mentor" subtitle="Knows your record. Asks before it tells." />
+      <MentorChat threadId={thread.id} initialMessages={thread.messages} suggestions={suggestions} />
+    </Screen>
   );
 }
