@@ -21,6 +21,11 @@ export async function clientAddress(): Promise<string> {
   return list.get("x-real-ip") ?? list.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 }
 
+/** Ends a key's window early: for a key used as a lock, once its work has finished or failed. */
+export async function release(key: string): Promise<void> {
+  await db.delete(throttle).where(eq(throttle.key, key));
+}
+
 /** Drops counters whose window ended more than a day ago. The daily job calls it. */
 export async function pruneThrottle(): Promise<number> {
   const gone = await db

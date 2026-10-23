@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { assessment, assessmentAttempt, assessmentItem, assessmentResponse, evaluation } from "@/db/schema";
 import type { AssessmentResponse, ItemPrompt } from "@/lib/assessment-response";
+import { withoutSupersededDiagnostics } from "@/lib/superseded-diagnostics";
 import type { GeneratedAssessmentItem } from "@/server/ai/schemas";
 import type { AttemptEvaluationResult } from "@/server/learning/assessment-grading";
 
@@ -197,7 +198,7 @@ export async function getAssessmentHistory(userId: string) {
     .orderBy(desc(assessment.createdAt))
     .limit(50);
 
-  return rows.map(({ result, ...row }) => ({
+  return withoutSupersededDiagnostics(rows).map(({ result, ...row }) => ({
     ...row,
     score: result ? (result as AttemptEvaluationResult).score : null,
   }));
