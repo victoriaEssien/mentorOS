@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Lock } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -11,6 +11,7 @@ import { abilityLabel } from "@/lib/skill-labels";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getOpenDiagnosticId } from "@/server/learning/diagnostic";
+import { getMissionsOverview, type MissionsOverview } from "@/server/queries/missions";
 import { getPathOverview, type PathOverview } from "@/server/queries/path";
 import { requireLearner } from "@/server/session";
 
@@ -22,12 +23,14 @@ export const metadata: Metadata = { title: "Learning path" };
 export const maxDuration = 120;
 
 type Step = PathOverview["steps"][number];
+type Practice = NonNullable<MissionsOverview["daily"]>;
 
 export default async function LearningPathPage() {
   const { user } = await requireLearner();
-  const [overview, openDiagnosticId] = await Promise.all([
+  const [overview, openDiagnosticId, missions] = await Promise.all([
     getPathOverview(user.id),
     getOpenDiagnosticId(user.id),
+    getMissionsOverview(user.id),
   ]);
   const { active, current, steps, deferred, earlier } = overview;
 
@@ -81,6 +84,7 @@ export default async function LearningPathPage() {
                 step={step}
                 number={index + 1}
                 current={step === current}
+                practice={missions.daily}
                 before={steps[index - 1]}
                 last={index === steps.length - 1}
               />
@@ -156,12 +160,15 @@ function TimelineStep({
   step,
   number,
   current,
+  practice,
   before,
   last,
 }: {
   step: Step;
   number: number;
   current: boolean;
+  /** Today's mission, which practises the current step. */
+  practice: Practice | null;
   before: Step | undefined;
   last: boolean;
 }) {
@@ -176,7 +183,7 @@ function TimelineStep({
         {last ? null : <Connector traveled={step.status === "completed"} className="min-h-0 flex-1" />}
       </div>
       <div className={cn("min-w-0 flex-1", current ? "pt-12" : before && "pt-5")}>
-        {current ? <CurrentStep step={step} /> : <StepText step={step} />}
+        {current ? <CurrentStep step={step} practice={practice} /> : <StepText step={step} />}
       </div>
     </li>
   );
@@ -213,8 +220,12 @@ function StepCell({ status, number }: { status: Step["status"]; number: number }
   );
 }
 
-/** The current focus: the one thing to work on now, with its reason and its skill. */
-function CurrentStep({ step }: { step: Step }) {
+/**
+ * The current focus: the one thing to work on now, with its reason and its skill, and how to work
+ * on it: today's mission and the reading it starts from, or a way to get one.
+ */
+function CurrentStep({ step, practice }: { step: Step; practice: Practice | null }) {
+  const reading = practice?.resources.filter((resource) => resource.url) ?? [];
   return (
     <div className="relative rounded-lg border-2 border-foreground bg-window p-4 shadow-window dark:border-rule-strong">
       <Pip size={48} label="Pip, on your current step" className="absolute -top-10.5 right-3" />
@@ -230,6 +241,57 @@ function CurrentStep({ step }: { step: Step }) {
           />
         </div>
       ) : null}
+
+      <div className="mt-1 border-t border-rule pt-3">
+        <p className="text-caption font-semibold text-muted-foreground">Practise it</p>
+        {practice ? (
+          <>
+            <Link
+              transitionTypes={NAV_FORWARD}
+              href={`/missions/${practice.id}`}
+              className="mt-1 flex pressable items-center justify-between gap-3 rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className="min-w-0">
+                <span className="block text-headline">{practice.title}</span>
+                <span className="block text-footnote text-muted-foreground">Today&apos;s mission</span>
+              </span>
+              <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+            </Link>
+            {reading.length > 0 ? (
+              <>
+                <p className="mt-3 text-caption font-semibold text-muted-foreground">Start here</p>
+                <ul className="mt-1.5 flex flex-col gap-2">
+                  {reading.map((resource) => (
+                    <li key={resource.url}>
+                      <a
+                        href={resource.url!}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex items-center gap-1 text-callout font-semibold underline decoration-rule-strong underline-offset-4 hover:decoration-foreground"
+                      >
+                        {resource.title}
+                        <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                      </a>
+                      {resource.note ? (
+                        <span className="block text-footnote text-muted-foreground">{resource.note}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <Link
+            transitionTypes={NAV_FORWARD}
+            href="/missions"
+            className="mt-1 inline-flex items-center gap-1 text-callout font-semibold underline decoration-rule-strong underline-offset-4 hover:decoration-foreground"
+          >
+            Get a mission for this step
+            <ChevronRight aria-hidden className="size-4" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

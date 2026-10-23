@@ -30,6 +30,9 @@ export async function getMissionsOverview(userId: string) {
         title: mission.title,
         objective: mission.objective,
         reason: mission.reason,
+        // What to read before starting, shown on the path's current step too.
+        requiredKnowledge: mission.requiredKnowledge,
+        resources: mission.resources,
         estimatedMinutes: mission.estimatedMinutes,
         difficulty: mission.difficulty,
         createdAt: mission.createdAt,
