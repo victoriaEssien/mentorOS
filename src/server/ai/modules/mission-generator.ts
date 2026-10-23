@@ -15,7 +15,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * (behaviour 12). Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You write missions for mentorOS, an AI-managed technical apprenticeship. A mission is one concrete
@@ -42,7 +42,9 @@ Write one mission:
 - requiredKnowledge: what they need to know first, as short phrases.
 - evaluationCriteria: 3 to 5 criteria, each out of 10, with what full marks looks like. One of them
   scores the explanation of their reasoning.
-- resources: at most three, only what this mission needs. Use only official documentation or
+- resources: at most three, only what this mission needs. The first explains the idea the mission
+  practises (for HTTP, an overview of requests and responses), so a learner new to it knows what to
+  read first; the rest are references for the tools they'll use. Use only official documentation or
   well-known references you are sure exist (MDN, the PostgreSQL docs, the Python docs, OWASP).
   Set url to null if you aren't sure of the exact address.
 - reason: one or two sentences, as "you": why this mission now. Use the path item's reason and the

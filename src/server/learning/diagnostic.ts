@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, isNotNull, notExists } from "drizzle-orm";
+import { and, desc, eq, isNotNull, notExists } from "drizzle-orm";
 
 import { db } from "@/db";
 import { assessment, assessmentAttempt, track, userTrack } from "@/db/schema";
@@ -7,12 +7,45 @@ import { buildLearnerContext } from "@/server/ai/context";
 import { AiGenerationError } from "@/server/ai/generate";
 import { generateAssessment, PROMPT_VERSION } from "@/server/ai/modules/assessment-generator";
 import { getTrackSkills } from "@/server/queries/skills";
+import { release, take, type Limit } from "@/server/throttle";
 
 import { saveAssessment } from "./assessment-store";
 import { pickDiagnosticSkills, planDiagnosticChunks } from "./diagnostic-plan";
 
-/** The learner's diagnostic that hasn't been completed yet, if any. */
+/**
+ * One diagnostic write at a time per learner. Writing takes about 40 seconds; a retry in that
+ * window (onboarding's request failed in the browser but kept going on the server) used to write,
+ * and pay for, a second diagnostic.
+ */
+const DIAGNOSTIC_WRITE: Limit = { max: 1, perSeconds: 180 };
+const WAIT_FOR_OTHER_WRITE_MS = 90_000;
+
+/** The diagnostic the learner finished, if any. */
+async function getFinishedDiagnosticId(userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ id: assessment.id })
+    .from(assessment)
+    .innerJoin(
+      assessmentAttempt,
+      and(eq(assessmentAttempt.assessmentId, assessment.id), isNotNull(assessmentAttempt.completedAt)),
+    )
+    .where(and(eq(assessment.userId, userId), eq(assessment.kind, "diagnostic")))
+    .orderBy(desc(assessmentAttempt.completedAt))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** The learner's diagnostic, finished or waiting for them. */
+async function findDiagnostic(userId: string): Promise<string | null> {
+  return (await getFinishedDiagnosticId(userId)) ?? (await getOpenDiagnosticId(userId));
+}
+
+/**
+ * The learner's diagnostic that hasn't been completed yet. None once they've finished one: a
+ * second written by an overlapping retry is never asked of them (withoutSupersededDiagnostics).
+ */
 export async function getOpenDiagnosticId(userId: string): Promise<string | null> {
+  if (await getFinishedDiagnosticId(userId)) return null;
   const [row] = await db
     .select({ id: assessment.id })
     .from(assessment)
@@ -38,14 +71,39 @@ export async function getOpenDiagnosticId(userId: string): Promise<string | null
 }
 
 /**
- * Returns the learner's open diagnostic, writing one first if needed (PRD §9). Skills are picked
- * deterministically across the learner's tracks; the questions are written in parallel chunks so
- * the learner waits for one model call, not four.
+ * Returns the learner's diagnostic, writing one first if they have none (PRD §9). A request that
+ * arrives while another is writing waits for that one instead of writing a second.
  */
 export async function ensureDiagnostic(userId: string): Promise<string> {
-  const existing = await getOpenDiagnosticId(userId);
+  const existing = await findDiagnostic(userId);
   if (existing) return existing;
 
+  const lock = `diagnostic-write:${userId}`;
+  if (!(await take(lock, DIAGNOSTIC_WRITE))) return waitForDiagnostic(userId);
+  try {
+    return await writeDiagnostic(userId);
+  } finally {
+    // Done or failed, the next request may write: if this one failed, a retry shouldn't wait.
+    await release(lock).catch(() => undefined);
+  }
+}
+
+/** Waits for the diagnostic another request is writing, so a retry opens that one. */
+async function waitForDiagnostic(userId: string): Promise<string> {
+  const deadline = Date.now() + WAIT_FOR_OTHER_WRITE_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    const id = await findDiagnostic(userId);
+    if (id) return id;
+  }
+  throw new Error("The diagnostic is still being written by another request.");
+}
+
+/**
+ * Writes the diagnostic. Skills are picked deterministically across the learner's tracks; the
+ * questions are written in parallel chunks so the learner waits for one model call, not four.
+ */
+async function writeDiagnostic(userId: string): Promise<string> {
   const tracks = await db
     .select({ id: track.id, name: track.name })
     .from(userTrack)
@@ -80,6 +138,10 @@ export async function ensureDiagnostic(userId: string): Promise<string> {
       ? failure.reason
       : new AiGenerationError("assessment-generator", "couldn't write the diagnostic");
   }
+
+  // Belt and braces: if one landed while these questions were being written, keep that one.
+  const landed = await findDiagnostic(userId);
+  if (landed) return landed;
 
   const trackNames = tracks.map((t) => t.name);
   return saveAssessment({
