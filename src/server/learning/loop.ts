@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { learnerProfile, userTrack } from "@/db/schema";
+import { getActiveTrackIds } from "@/server/queries/skills";
 
 import { gradeAttempt } from "./assessment-grading";
 import { checkOnSkill, surpriseCheckIfDue } from "./checks";
@@ -26,7 +27,6 @@ import { submitWork, type WorkInput } from "./submissions";
  */
 
 export type OnboardingInput = {
-  trackIds: string[];
   goals: string[];
   customGoal: string | null;
   currentRole: string | null;
@@ -40,19 +40,20 @@ export type OnboardingInput = {
 };
 
 /**
- * Saves onboarding context (PRD §8) and the learner's tracks in one transaction, then writes the
- * diagnostic. Background is context for the mentor; it never writes a skill estimate. Safe to call
- * again: it replaces the previous answers and reuses an unstarted diagnostic.
+ * Saves onboarding context and gives the learner every active track (nobody picks), in one
+ * transaction, then writes the diagnostic. Background is context for the mentor; it never writes a
+ * skill estimate. Safe to call again: it replaces the previous answers and reuses an unstarted
+ * diagnostic.
  *
  * If the diagnostic can't be written (model down, bad output), onboarding still counts as done and
  * assessmentId is null; Today offers to build it again.
  */
 export async function completeOnboarding(
   userId: string,
-  input: OnboardingInput,
+  profile: OnboardingInput,
 ): Promise<{ assessmentId: string | null }> {
   const now = new Date();
-  const { trackIds, ...profile } = input;
+  const trackIds = await getActiveTrackIds();
 
   await db.batch([
     db
@@ -108,17 +109,11 @@ export async function refreshLearningPath(
 }
 
 /**
- * Changes what the learner told us at onboarding (PRD §8): tracks, goals, weekly time, learning
- * style, mentor tone. `replan` says their tracks changed while they have a path: the path is
- * planned from the tracks' skills, so it should be planned again (refreshLearningPath), which the
- * caller runs after responding.
+ * Changes what the learner told us at onboarding (PRD §8): goals, weekly time, learning style,
+ * mentor tone. None of these reshape the path, so nothing is planned again.
  */
-export async function changeSettings(
-  userId: string,
-  changes: Partial<LearnerSettings>,
-): Promise<{ replan: boolean }> {
-  const { tracksChanged } = await updateLearnerSettings(userId, changes);
-  return { replan: tracksChanged && (await hasActivePath(userId)) };
+export async function changeSettings(userId: string, changes: Partial<LearnerSettings>): Promise<void> {
+  await updateLearnerSettings(userId, changes);
 }
 
 /**

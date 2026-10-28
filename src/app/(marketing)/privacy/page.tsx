@@ -37,9 +37,8 @@ const sections: LegalSection[] = [
           and profile picture from them.
         </li>
         <li>
-          <strong>What you tell us when you start.</strong> The tracks you picked, your goals, your experience
-          and the technologies you know, how much time you have each week, and how you like to learn and be
-          spoken to.
+          <strong>What you tell us when you start.</strong> Your goals, your experience and the technologies
+          you know, how much time you have each week, and how you like to learn and be spoken to.
         </li>
         <li>
           <strong>Your work.</strong> Your answers to assessments and checks, the work you hand in for

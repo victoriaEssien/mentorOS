@@ -23,6 +23,18 @@ export async function getTaxonomy() {
 
 export type Taxonomy = Awaited<ReturnType<typeof getTaxonomy>>;
 
+/** The tracks every learner learns: all but the shelved ones, in order. Nobody picks. */
+export async function getActiveTrackIds(): Promise<string[]> {
+  const { tracks } = await getTaxonomy();
+  return tracks.filter((entry) => !entry.shelved).map((entry) => entry.id);
+}
+
+/** Shelved tracks: nobody learns them as a track, but a mission may touch their skills when it needs to. */
+export async function getShelvedTrackIds(): Promise<string[]> {
+  const { tracks } = await getTaxonomy();
+  return tracks.filter((entry) => entry.shelved).map((entry) => entry.id);
+}
+
 /**
  * Assessable (leaf) skills placed in any of the given tracks, in tree order, without repeats.
  * A skill placed in two of the tracks keeps its home placement (SQL stays under Databases).

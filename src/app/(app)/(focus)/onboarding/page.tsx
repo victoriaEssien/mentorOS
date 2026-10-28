@@ -19,7 +19,9 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingWizard
-      tracks={tracks.map((track) => ({ id: track.id, name: track.name, description: track.description }))}
+      tracks={tracks
+        .filter((track) => !track.shelved)
+        .map((track) => ({ id: track.id, name: track.name, description: track.description }))}
       initial={
         profile
           ? {

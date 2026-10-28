@@ -23,17 +23,30 @@ async function main() {
 
   await db
     .insert(schema.track)
-    .values(tracks.map((track, index) => ({ ...track, sortOrder: index })))
+    .values(tracks.map((track, index) => ({ ...track, shelved: track.shelved ?? false, sortOrder: index })))
     .onConflictDoUpdate({
       target: schema.track.slug,
       set: {
         name: sql`excluded.name`,
         description: sql`excluded.description`,
         sortOrder: sql`excluded.sort_order`,
+        shelved: sql`excluded.shelved`,
       },
     });
 
   const trackId = new Map((await db.select().from(schema.track)).map((t) => [t.slug, t.id]));
+
+  // Nobody picks tracks: every learner learns exactly the active ones, so a learner's tracks follow
+  // this file whenever it changes.
+  const active = tracks.filter((track) => !track.shelved).map((track) => trackId.get(track.slug)!);
+  const learners = await db.select({ userId: schema.learnerProfile.userId }).from(schema.learnerProfile);
+  await db.delete(schema.userTrack).where(notInArray(schema.userTrack.trackId, active));
+  if (learners.length > 0) {
+    await db
+      .insert(schema.userTrack)
+      .values(learners.flatMap(({ userId }) => active.map((id) => ({ userId, trackId: id }))))
+      .onConflictDoNothing();
+  }
 
   // Groups first so leaf skills can point at them.
   const groups = skills.filter((s) => !s.parent);

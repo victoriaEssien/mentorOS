@@ -5,7 +5,7 @@ import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { ChoiceGroup, SelectionMark } from "@/components/form/choice-group";
+import { ChoiceGroup } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { FormNotice } from "@/components/form/form-notice";
 import { Button } from "@/components/ui/button";
@@ -126,70 +126,6 @@ function NameForm({ name, close }: { name: string; close: () => void }) {
         {pending ? "Saving" : "Save"}
       </Button>
     </form>
-  );
-}
-
-type Track = { id: string; name: string; description: string | null };
-
-export function TracksSetting({ tracks, selected }: { tracks: Track[]; selected: string[] }) {
-  const names = tracks.filter((track) => selected.includes(track.id)).map((track) => track.name);
-  return (
-    <SettingSheet
-      label="Tracks"
-      value={names.join(", ") || "None"}
-      title="Your tracks"
-      description="Your path is planned from these. Changing them plans it again, in about half a minute. Your evidence stays."
-    >
-      {(close) => <TracksForm tracks={tracks} selected={selected} close={close} />}
-    </SettingSheet>
-  );
-}
-
-function TracksForm({ tracks, selected, close }: { tracks: Track[]; selected: string[]; close: () => void }) {
-  const [draft, setDraft] = useState(selected);
-  const { pending, error, save } = useSave(close);
-  const unchanged = draft.length === selected.length && draft.every((id) => selected.includes(id));
-  return (
-    <div className="flex flex-col gap-4">
-      <ToggleGroupPrimitive.Root
-        type="multiple"
-        value={draft}
-        onValueChange={setDraft}
-        aria-label="Tracks"
-        className="flex flex-col gap-2"
-      >
-        {tracks.map((track) => {
-          const on = draft.includes(track.id);
-          return (
-            <ToggleGroupPrimitive.Item
-              key={track.id}
-              value={track.id}
-              className={cn(
-                "flex pressable items-center gap-4 rounded-lg border bg-window px-4 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                on ? "border-foreground" : "border-rule",
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-callout font-semibold">{track.name}</span>
-                {track.description ? (
-                  <span className="mt-0.5 block text-footnote text-muted-foreground">
-                    {track.description}
-                  </span>
-                ) : null}
-              </span>
-              <SelectionMark selected={on} />
-            </ToggleGroupPrimitive.Item>
-          );
-        })}
-      </ToggleGroupPrimitive.Root>
-      {error ? <FormAlert>{error}</FormAlert> : null}
-      <Button
-        disabled={pending || draft.length === 0 || unchanged}
-        onClick={() => save(() => saveSettingsAction({ trackIds: draft }))}
-      >
-        {pending ? "Saving" : draft.length === 0 ? "Pick at least one track" : "Save and replan"}
-      </Button>
-    </div>
   );
 }
 

@@ -13,8 +13,7 @@ import { LINK_EMAILS, linkEmailKey, passwordChangedEmail } from "@/server/email/
 import { setEmailTopic } from "@/server/email/preferences";
 import { sendEmail } from "@/server/email/send";
 import { appUrl } from "@/server/email/urls";
-import { changeSettings, refreshLearningPath } from "@/server/learning/loop";
-import { getTaxonomy } from "@/server/queries/skills";
+import { changeSettings } from "@/server/learning/loop";
 import { requireLearner } from "@/server/session";
 import { hasRoom, take, type Limit } from "@/server/throttle";
 
@@ -30,27 +29,7 @@ export async function saveSettingsAction(changes: unknown): Promise<SaveState> {
     return { error: parsed.error.issues[0]?.message ?? "That change couldn't be saved. Try again." };
   }
 
-  if (parsed.data.trackIds) {
-    const { tracks } = await getTaxonomy();
-    const known = new Set(tracks.map((track) => track.id));
-    if (!parsed.data.trackIds.every((id) => known.has(id))) {
-      return { error: "One of those tracks no longer exists. Pick your tracks again." };
-    }
-  }
-
-  const { replan } = await changeSettings(user.id, parsed.data);
-  if (replan) {
-    // Planning is a model call: the new path is drawn after this response, about half a minute.
-    const userId = user.id;
-    after(async () => {
-      try {
-        await refreshLearningPath(userId);
-      } catch (error) {
-        console.error(JSON.stringify({ event: "path.replan_failed", reason: String(error) }));
-      }
-    });
-  }
-
+  await changeSettings(user.id, parsed.data);
   refresh();
   return {};
 }
