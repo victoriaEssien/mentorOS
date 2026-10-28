@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { greetingFor, knownTimeZone, shortDate } from "./local-time";
+import { greetingFor, knownTimeZone, localDay, shortDate } from "./local-time";
 
 // 21 October 2026 was a Wednesday. Lagos is UTC+1 all year.
 const at = (utc: string) => new Date(`2026-10-21T${utc}:00Z`);
@@ -47,5 +47,14 @@ describe("shortDate", () => {
   it("formats on their calendar when known", () => {
     expect(shortDate(at("23:30"), "Africa/Lagos")).toBe("22 Oct");
     expect(shortDate(at("23:30"), "UTC")).toBe("21 Oct");
+  });
+});
+
+describe("localDay", () => {
+  it("is their calendar date, which can differ from UTC's", () => {
+    const lateEvening = new Date("2026-10-28T23:30:00Z");
+    expect(localDay(lateEvening, "Africa/Lagos")).toBe("2026-10-29");
+    expect(localDay(lateEvening, "America/New_York")).toBe("2026-10-28");
+    expect(localDay(lateEvening, null)).toBe("2026-10-28");
   });
 });

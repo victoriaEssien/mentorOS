@@ -10,6 +10,11 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
   security: "Security",
   data: "Data",
   electronics: "Electronics",
+  program: "Write a program",
+  algorithm: "Solve it",
+  fix_bug: "Fix the bug",
+  explain_code: "Explain the code",
+  predict_output: "Predict the output",
 };
 
 export const itemTypeLabel = (type: string) => ITEM_TYPE_LABEL[type] ?? "Question";

@@ -51,3 +51,16 @@ export function shortDate(date: Date, timeZone: string | null): string {
     ...(timeZone ? { timeZone } : {}),
   });
 }
+
+/** Their calendar date as "YYYY-MM-DD", in UTC when the time zone isn't known. */
+export function localDay(now: Date, timeZone: string | null): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timeZone ?? "UTC",
+  }).format(now);
+}
+
+/** Today on their calendar. */
+export const today = (timeZone: string | null) => localDay(new Date(), timeZone);

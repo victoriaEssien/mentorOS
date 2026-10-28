@@ -154,7 +154,7 @@ export function AnswerList({ answers }: { answers: Answer[] }) {
                     </Badge>
                   </span>
                   <span className="mt-1 line-clamp-2 text-callout group-open:line-clamp-none">
-                    <RichText text={answer.prompt.question} />
+                    {answer.prompt.title ?? <RichText text={answer.prompt.question} />}
                   </span>
                 </span>
                 <ChevronRight
@@ -163,7 +163,15 @@ export function AnswerList({ answers }: { answers: Answer[] }) {
                 />
               </summary>
               <div className="flex flex-col gap-4 pb-5 pl-8">
-                {answer.prompt.code ? <CodeBlock code={answer.prompt.code} /> : null}
+                {answer.prompt.title ? (
+                  <div className="text-callout">
+                    <RichText text={answer.prompt.question} />
+                  </div>
+                ) : null}
+                {/* Code answers show their own code instead of the starter. */}
+                {answer.prompt.code && answer.response?.kind !== "code" ? (
+                  <CodeBlock code={answer.prompt.code} />
+                ) : null}
                 <AnswerReview answer={answer} outcome={outcome} />
               </div>
             </details>
@@ -219,23 +227,81 @@ function AnswerReview({ answer, outcome }: { answer: Answer; outcome: Outcome })
     );
   }
 
+  if (response?.kind === "code") {
+    const tests = answer.grade.tests;
+    return (
+      <>
+        <ReviewBlock title="Your code">
+          <CodeBlock code={response.code} />
+          {tests ? (
+            <p
+              className={cn(
+                "mt-2 text-callout font-semibold",
+                tests.passed === tests.total ? "text-pass" : "text-fail",
+              )}
+            >
+              {tests.compiled ? `Passed ${tests.passed} of ${tests.total} tests` : "It didn't compile"}
+            </p>
+          ) : null}
+        </ReviewBlock>
+        {response.explanation.trim() ? (
+          <ReviewBlock title="Your approach">
+            <p className="text-callout whitespace-pre-line text-muted-foreground">
+              {response.explanation.trim()}
+            </p>
+          </ReviewBlock>
+        ) : null}
+        {answer.grade.feedback ? (
+          <ReviewBlock title="Feedback">
+            <p className="text-callout">{answer.grade.feedback}</p>
+          </ReviewBlock>
+        ) : null}
+        <ReviewBlock title="A strong answer covers">
+          <p className="text-callout">
+            <RichText text={answer.expected} />
+          </p>
+        </ReviewBlock>
+        {answer.solution ? (
+          <details className="group/solution">
+            <summary className="cursor-pointer text-footnote font-semibold outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              One working solution
+            </summary>
+            <CodeBlock code={answer.solution} className="mt-2" />
+          </details>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <>
       <ReviewBlock title="Your answer">
         {response?.kind === "text" && response.text.trim() ? (
-          <p className="text-callout whitespace-pre-line text-muted-foreground">{response.text.trim()}</p>
+          <p
+            className={cn(
+              "text-callout text-muted-foreground",
+              answer.output ? "font-mono text-[0.8125rem] whitespace-pre" : "whitespace-pre-line",
+            )}
+          >
+            {response.text.trim()}
+          </p>
         ) : (
           <p className="text-callout text-muted-foreground">
             {outcome === "unknown" ? "You said you didn’t know." : "You didn’t answer this one."}
           </p>
         )}
       </ReviewBlock>
+      {answer.output ? (
+        <ReviewBlock title="What it actually prints">
+          <CodeBlock code={answer.output} />
+        </ReviewBlock>
+      ) : null}
       {answer.grade.feedback ? (
         <ReviewBlock title="Feedback">
           <p className="text-callout">{answer.grade.feedback}</p>
         </ReviewBlock>
       ) : null}
-      <ReviewBlock title="A strong answer covers">
+      <ReviewBlock title={answer.output ? "Why" : "A strong answer covers"}>
         <p className="text-callout">
           <RichText text={answer.expected} />
         </p>

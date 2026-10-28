@@ -12,16 +12,19 @@ import {
   skill,
 } from "@/db/schema";
 import type { AssessmentResponse, ItemPrompt } from "@/lib/assessment-response";
+import { CODE_LANGUAGE_LABEL, TESTED_ITEM_TYPES, type TestCase } from "@/lib/code-languages";
 import { gradeAnswer, PROMPT_VERSION } from "@/server/ai/modules/skill-evaluator";
 import { toEvidenceRows } from "@/server/ai/modules/skill-profile-updater";
 import { modelId } from "@/server/ai/provider";
 import type { GeneratedAssessmentItem } from "@/server/ai/schemas";
+import { runTests, type RunOutcome } from "@/server/runner/run";
 
 import { AssessmentClosedError, AssessmentNotFoundError } from "./attempts";
 import type { SkillChange } from "./evidence";
 import {
   GRADING_VERSION,
   gradeByRules,
+  gradeCode,
   gradeFromModel,
   overallScore,
   verdictFor,
@@ -31,7 +34,12 @@ import {
 } from "./grading";
 import { prepareEvidence } from "./profile";
 
-type Rubric = GeneratedAssessmentItem["rubric"];
+/** Daily set items add hidden tests, the reference solution, or the real output of a program. */
+type Rubric = GeneratedAssessmentItem["rubric"] & {
+  tests?: TestCase[];
+  solution?: string | null;
+  output?: string | null;
+};
 
 /** What an evaluation row's `result` holds for an assessment attempt. */
 export type AttemptEvaluationResult = {
@@ -121,12 +129,44 @@ export async function gradeAttempt(
         options: prompt.options,
         correctOption: rubric.correctOption,
         skillSlugs: itemSkills.map((s) => s.slug),
+        expectedOutput: rubric.output ?? null,
+        runsTests: TESTED_ITEM_TYPES.includes(row.type),
       };
 
       // A row can hold only hints, with no answer: that grades as a blank.
       const response = (responses.get(row.id)?.response ?? undefined) as AssessmentResponse | undefined;
       const byRules = gradeByRules(item, response);
       if (byRules) return byRules;
+
+      if (response?.kind === "code" && prompt.language) {
+        // Every test, examples and hidden alike, then a review of the code and their reasoning.
+        const tests = [...(prompt.examples ?? []), ...(rubric.tests ?? [])];
+        const run = await runTests(prompt.language, response.code, tests);
+        const tally = {
+          passed: run.cases.filter((result) => result.passed).length,
+          total: tests.length,
+          compiled: run.compileError === null,
+        };
+        try {
+          const { grade } = await gradeAnswer({
+            item: {
+              type: row.type,
+              difficulty: row.difficulty,
+              question: prompt.question,
+              code: prompt.code,
+              expected: rubric.expected,
+              gradingNotes: rubric.gradingNotes,
+            },
+            skills: itemSkills,
+            answer: describeCodeAnswer(prompt.language, response, tests, run),
+            abortSignal: controller.signal,
+          });
+          return gradeCode(item, tally, grade);
+        } catch (error) {
+          controller.abort();
+          throw error;
+        }
+      }
 
       try {
         const { grade } = await gradeAnswer({
@@ -220,4 +260,35 @@ export async function gradeAttempt(
   );
 
   return { evaluationId, outcome, changes, kind: attempt.kind };
+}
+
+/** A code answer as the Skill Evaluator reads it: the code, how it did on the tests, and why they wrote it that way. */
+function describeCodeAnswer(
+  language: NonNullable<ItemPrompt["language"]>,
+  response: Extract<AssessmentResponse, { kind: "code" }>,
+  tests: TestCase[],
+  run: RunOutcome,
+): string {
+  const passed = run.cases.filter((result) => result.passed).length;
+  const failing = run.cases.findIndex((result) => !result.passed);
+  const firstFailure =
+    failing >= 0
+      ? [
+          `First failing test: input ${JSON.stringify(tests[failing]!.input.slice(0, 200))}, expected ${JSON.stringify(tests[failing]!.output.slice(0, 200))}, ` +
+            (run.cases[failing]!.timedOut
+              ? "it ran out of time."
+              : `it printed ${JSON.stringify(run.cases[failing]!.stdout.slice(0, 200))}${run.cases[failing]!.stderr ? ` with error ${JSON.stringify(run.cases[failing]!.stderr.slice(0, 300))}` : ""}.`),
+        ]
+      : [];
+  return [
+    `Their ${CODE_LANGUAGE_LABEL[language]} code:`,
+    response.code.trim(),
+    "",
+    run.compileError
+      ? `It didn't compile: ${run.compileError.slice(0, 600)}`
+      : `It passed ${passed} of ${tests.length} tests.`,
+    ...firstFailure,
+    "",
+    `Their explanation: ${response.explanation.trim() || "(none given)"}`,
+  ].join("\n");
 }

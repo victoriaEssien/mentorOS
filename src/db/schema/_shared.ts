@@ -32,14 +32,21 @@ export const assessmentItemType = pgEnum("assessment_item_type", [
   "security",
   "data",
   "electronics",
+  // The daily coding set: programs that run against tests, code to explain, output to predict.
+  "program",
+  "algorithm",
+  "fix_bug",
+  "explain_code",
+  "predict_output",
 ]);
 
-/** Why an assessment exists. Quizzes and surprise checks live here too (PRD §9, §18). */
+/** Why an assessment exists. Quizzes, surprise checks and the daily coding set live here too (PRD §9, §18). */
 export const assessmentKind = pgEnum("assessment_kind", [
   "diagnostic",
   "knowledge_check",
   "surprise",
   "reassessment",
+  "daily",
 ]);
 
 /** Mission activity types (PRD §14). */

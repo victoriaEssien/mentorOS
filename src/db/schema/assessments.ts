@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  date,
   index,
   integer,
   jsonb,
@@ -33,9 +34,15 @@ export const assessment = pgTable(
     reason: text(),
     /** Model id that generated the items, for auditability. */
     generatedBy: text(),
+    /** The learner's calendar day a daily set belongs to; null for every other kind. */
+    day: date({ mode: "string" }),
     createdAt: createdAt(),
   },
-  (t) => [index().on(t.userId, t.kind)],
+  (t) => [
+    index().on(t.userId, t.kind),
+    // One daily set per learner per day, so two quick taps can't write two.
+    uniqueIndex("assessment_daily_index").on(t.userId, t.day),
+  ],
 );
 
 export const assessmentItem = pgTable(

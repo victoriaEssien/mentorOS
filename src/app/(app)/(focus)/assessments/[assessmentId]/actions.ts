@@ -11,7 +11,14 @@ import {
   openAttempt,
   saveResponse,
 } from "@/server/learning/attempts";
-import { assignNextMission, refreshLearningPath, submitAssessmentAttempt } from "@/server/learning/loop";
+import { NotRunnableError, TooManyRunsError } from "@/server/learning/daily";
+import {
+  assignNextMission,
+  refreshLearningPath,
+  runDailyCode,
+  submitAssessmentAttempt,
+} from "@/server/learning/loop";
+import { RunnerUnavailableError } from "@/server/runner/run";
 import { requireUser } from "@/server/session";
 
 const uuid = z.uuid();
@@ -81,5 +88,59 @@ async function planAfterGrading(userId: string) {
   } catch (error) {
     // The path and missions screens offer to try again when either is missing.
     console.error(JSON.stringify({ event: "path.plan_failed", userId, reason: String(error) }));
+  }
+}
+
+export type ExampleResult = {
+  input: string;
+  expected: string;
+  stdout: string;
+  stderr: string;
+  passed: boolean;
+  timedOut: boolean;
+};
+
+export type RunResult =
+  { ok: true; compileError: string | null; examples: ExampleResult[] } | { ok: false; error: string };
+
+/** Runs a daily question's code against its examples. Hidden tests run only at hand-in. */
+export async function runCodeAction(assessmentId: string, itemId: string, code: unknown): Promise<RunResult> {
+  const user = await requireUser();
+  const source = z.string().max(20_000).safeParse(code);
+  if (!uuid.safeParse(assessmentId).success || !uuid.safeParse(itemId).success || !source.success) {
+    return { ok: false, error: "That code couldn't be run. It may be over 20,000 characters." };
+  }
+
+  try {
+    const { examples, run } = await runDailyCode(user.id, assessmentId, itemId, source.data);
+    return {
+      ok: true,
+      compileError: run.compileError,
+      examples: run.cases.map((result, index) => ({
+        input: examples[index]!.input,
+        expected: examples[index]!.output,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        passed: result.passed,
+        timedOut: result.timedOut,
+      })),
+    };
+  } catch (error) {
+    if (error instanceof TooManyRunsError) {
+      return {
+        ok: false,
+        error: "That's 60 runs this hour, the limit. Read it through once more, then try again.",
+      };
+    }
+    if (error instanceof RunnerUnavailableError) {
+      console.error(JSON.stringify({ event: "runner.unavailable", reason: error.message }));
+      return {
+        ok: false,
+        error: "Running code isn't working right now. Your code is saved, and you can still hand in.",
+      };
+    }
+    if (error instanceof NotRunnableError)
+      return { ok: false, error: "This question isn't answered with code." };
+    throw error;
   }
 }

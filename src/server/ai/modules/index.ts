@@ -3,6 +3,7 @@
  * Modules return validated data. Callers in src/server/learning decide what gets persisted.
  */
 export * as assessmentGenerator from "./assessment-generator";
+export * as codingQuestionWriter from "./coding-question-writer";
 export * as skillEvaluator from "./skill-evaluator";
 export * as learningPlanner from "./learning-planner";
 export * as missionGenerator from "./mission-generator";
