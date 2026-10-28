@@ -23,6 +23,20 @@ import {
 import { user } from "./auth";
 import { skill } from "./skills";
 
+/**
+ * How to study one path step: the ideas to understand, what to read, small exercises before the
+ * mission, the usual mistakes, and how to tell it has landed. Written when the step is first
+ * opened as the current one.
+ */
+export type StudyGuide = {
+  summary: string;
+  learn: { idea: string; why: string }[];
+  read: { title: string; url?: string; kind: string; note?: string }[];
+  practise: string[];
+  pitfalls: string[];
+  checkpoints: string[];
+};
+
 /** A learner's personalised path (PRD §12). Old paths are archived, not edited, so changes are traceable. */
 export const learningPath = pgTable(
   "learning_path",
@@ -64,6 +78,10 @@ export const learningPathItem = pgTable(
     status: pathItemStatus().default("upcoming").notNull(),
     /** For a deferred item ("not yet"): what has to be true before it unlocks. */
     unlockWhen: text(),
+    /** How to study this step, written when it's first opened as the current step. */
+    guide: jsonb().$type<StudyGuide>(),
+    /** Model and prompt version that wrote the guide. */
+    guideGeneratedBy: text(),
     updatedAt: updatedAt(),
   },
   (t) => [index().on(t.pathId)],
@@ -86,11 +104,19 @@ export const mission = pgTable(
     status: missionStatus().default("assigned").notNull(),
     title: text().notNull(),
     objective: text().notNull(),
+    /** The situation it's set in: who needs this and what makes it interesting. */
+    scenario: text(),
     /** Why the mentor is assigning this now. */
     reason: text().notNull(),
     instructions: text().notNull(),
     requiredKnowledge: jsonb().$type<string[]>().default([]).notNull(),
     deliverable: text().notNull(),
+    /** Checkable statements of done: what the evaluation looks for. */
+    acceptanceCriteria: jsonb().$type<string[]>().default([]).notNull(),
+    /** A harder extension for when they finish early. */
+    stretchGoal: text(),
+    /** "Your stack: Next.js" or "Exploring: Redis". */
+    stack: text(),
     evaluationCriteria: jsonb().$type<EvaluationCriterion[]>().default([]).notNull(),
     resources: jsonb().$type<MissionResource[]>().default([]).notNull(),
     estimatedMinutes: integer(),

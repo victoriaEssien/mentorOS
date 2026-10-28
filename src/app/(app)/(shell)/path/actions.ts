@@ -4,7 +4,8 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 
 import { AiGenerationError } from "@/server/ai/generate";
-import { refreshLearningPath } from "@/server/learning/loop";
+import { refreshLearningPath, studyGuide } from "@/server/learning/loop";
+import { StepNotFoundError } from "@/server/learning/study-guide";
 import { getLastPlannedAt } from "@/server/queries/path";
 import { requireLearner } from "@/server/session";
 
@@ -52,4 +53,27 @@ async function plan(userId: string, request: string | null): Promise<PlanState> 
 
   refresh();
   return { ok: true };
+}
+
+export type GuideState = { ok: true; written: boolean } | { ok: false; error: string };
+
+/** Writes the current step's study guide; `written: false` means another request is already on it. */
+export async function writeStudyGuideAction(pathItemId: string): Promise<GuideState> {
+  const { user } = await requireLearner();
+  if (!z.uuid().safeParse(pathItemId).success) return { ok: false, error: "That step no longer exists." };
+  try {
+    const guide = await studyGuide(user.id, pathItemId);
+    return { ok: true, written: guide !== null };
+  } catch (error) {
+    if (error instanceof StepNotFoundError)
+      return { ok: false, error: "That step is no longer on your path." };
+    console.error(JSON.stringify({ event: "guide.failed", reason: String(error) }));
+    return {
+      ok: false,
+      error:
+        error instanceof AiGenerationError
+          ? "The guide didn't come back in a usable shape. Try again."
+          : "Writing the guide didn't finish. Try again in a moment.",
+    };
+  }
 }

@@ -50,6 +50,7 @@ export async function getPathOverview(userId: string) {
           reason: learningPathItem.reason,
           status: learningPathItem.status,
           unlockWhen: learningPathItem.unlockWhen,
+          guide: learningPathItem.guide,
           skill: { slug: skill.slug, name: skill.name },
           estimate: {
             ability: userSkill.ability,

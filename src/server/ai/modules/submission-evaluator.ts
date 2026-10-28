@@ -13,7 +13,7 @@ import { submissionEvaluationSchema, type SubmissionEvaluation } from "../schema
  * same work earns the same scores for everyone. Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v2";
+export const PROMPT_VERSION = "v3";
 
 const SYSTEM_PROMPT = `
 You evaluate a mission submission for mentorOS, an AI-managed technical apprenticeship. The
@@ -52,6 +52,8 @@ export type EvaluatedMission = {
   objective: string;
   deliverable: string;
   instructions: string;
+  /** Checkable statements of done, on missions written since they existed. */
+  acceptanceCriteria: string[];
   criteria: { key: string; label: string; description: string; maxScore: number }[];
   skills: { slug: string; name: string }[];
 };
@@ -78,6 +80,9 @@ export async function evaluateSubmission(input: {
     `What to hand in: ${mission.deliverable}`,
     "Steps they were given:",
     mission.instructions.slice(0, 4000),
+    ...(mission.acceptanceCriteria.length > 0
+      ? ["", "Done when (check each one):", ...mission.acceptanceCriteria.map((item) => `- ${item}`)]
+      : []),
     "",
     "CRITERIA (key: label, out of 10. What full marks looks like)",
     ...mission.criteria.map((c) => `- ${c.key}: ${c.label}. ${c.description}`),

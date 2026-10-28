@@ -18,12 +18,28 @@ export const generatedMissionSchema = z.object({
   type: z.enum(missionTypes),
   title: z.string().describe("What they'll make or do, in a few words"),
   objective: z.string().describe("One sentence: what they will be able to show when it's done"),
+  scenario: z
+    .string()
+    .describe(
+      "Two or three sentences: who needs this, what's missing or broken, and the constraint that makes it interesting",
+    ),
+  technology: z
+    .string()
+    .describe("The main technology it's built with, e.g. 'Next.js and Postgres' or 'Redis'"),
   reason: z.string().describe("Why this mission, now, for this learner"),
   estimatedMinutes: z.number().int().min(5),
   skills: z.array(z.string()).min(1).describe("Skill slugs practised; the first is the path item's skill"),
   requiredKnowledge: z.array(z.string()).describe("What they need to know first, as short phrases"),
   instructions: z.string().describe("Numbered steps, plain text, one per line"),
   deliverable: z.string().describe("Exactly what to hand in: a link, a repo, or a written explanation"),
+  acceptanceCriteria: z
+    .array(z.string())
+    .min(3)
+    .max(7)
+    .describe(
+      "Checkable statements of done: behaviour, edge cases handled, a performance or reliability target, tests that exist",
+    ),
+  stretchGoal: z.string().nullable().describe("One harder extension for when they finish early, or null"),
   evaluationCriteria: z
     .array(
       z.object({

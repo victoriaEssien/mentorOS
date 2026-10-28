@@ -16,6 +16,8 @@ import { getPathOverview, type PathOverview } from "@/server/queries/path";
 import { requireLearner } from "@/server/session";
 
 import { AskForChange, PlanningPoller, PlanPathButton } from "./path-controls";
+import { StudyGuideView } from "./study-guide";
+import { StudyGuideWriter } from "./study-guide-writer";
 
 export const metadata: Metadata = { title: "Learning path" };
 
@@ -91,6 +93,18 @@ export default async function LearningPathPage() {
             ))}
           </ol>
         </ScreenSection>
+      ) : null}
+
+      {current ? (
+        <div id="study-guide" className="scroll-mt-16">
+          <ScreenSection title="Study guide">
+            {current.guide ? (
+              <StudyGuideView guide={current.guide} />
+            ) : (
+              <StudyGuideWriter pathItemId={current.id} />
+            )}
+          </ScreenSection>
+        </div>
       ) : null}
 
       {deferred.length > 0 ? (
@@ -242,7 +256,15 @@ function CurrentStep({ step, practice }: { step: Step; practice: Practice | null
         </div>
       ) : null}
 
-      <div className="mt-1 border-t border-rule pt-3">
+      <a
+        href="#study-guide"
+        className="mt-1 flex items-center justify-between gap-3 border-t border-rule py-3 text-callout font-semibold outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        {step.guide ? "Read the study guide" : "Your study guide is below"}
+        <ChevronRight aria-hidden className="size-5 shrink-0 rotate-90 text-muted-foreground" />
+      </a>
+
+      <div className="border-t border-rule pt-3">
         <p className="text-caption font-semibold text-muted-foreground">Practise it</p>
         {practice ? (
           <>

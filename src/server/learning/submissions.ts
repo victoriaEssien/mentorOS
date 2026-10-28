@@ -132,6 +132,7 @@ export async function submitWork(
       objective: claimed.objective,
       deliverable: claimed.deliverable,
       instructions: claimed.instructions,
+      acceptanceCriteria: claimed.acceptanceCriteria,
       criteria: claimed.evaluationCriteria,
       skills: skills.map((s) => ({ slug: s.slug, name: s.name })),
     };

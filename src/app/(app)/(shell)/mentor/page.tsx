@@ -18,6 +18,7 @@ export default async function MentorPage() {
     focus ? `Why is ${focus} my focus right now?` : "What should I learn first?",
     focus ? `Explain the idea behind ${focus} like I'm new to it` : "Explain how HTTP caching works",
     focus ? `I think I understand ${focus}. Test me.` : "I think I understand SQL joins. Test me.",
+    focus ? `Give me some ${focus} code to explain` : "Give me some code to explain",
     "Can we move on to something harder?",
   ];
 

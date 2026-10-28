@@ -80,7 +80,10 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
               Difficulty {mission.difficulty} of 5
             </span>
           ) : null}
-          <p className={cn("text-body", mission.difficulty && "mt-3")}>{mission.objective}</p>
+          {mission.stack ? <p className="mt-1.5 text-footnote font-semibold">{mission.stack}</p> : null}
+          <p className={cn("text-body", (mission.difficulty || mission.stack) && "mt-3")}>
+            {mission.objective}
+          </p>
           {open || mission.status === "expired" ? null : (
             <div className="mt-5">
               <PrimaryAction
@@ -96,6 +99,14 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
       <ScreenSection title="Why this, now">
         <PipSays mood={mission.status === "submitted" ? "thinking" : "idle"}>{mission.reason}</PipSays>
       </ScreenSection>
+
+      {mission.scenario ? (
+        <ScreenSection title="The situation">
+          <p className="text-callout">
+            <RichText text={mission.scenario} />
+          </p>
+        </ScreenSection>
+      ) : null}
 
       {mission.requiredKnowledge.length > 0 ? (
         <ScreenSection title="Before you start">
@@ -127,6 +138,30 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
           ))}
         </ol>
       </ScreenSection>
+
+      {mission.acceptanceCriteria.length > 0 ? (
+        <ScreenSection title="Done when">
+          <ul className="flex flex-col gap-2">
+            {mission.acceptanceCriteria.map((item) => (
+              <li key={item} className="flex gap-3 text-callout">
+                <span
+                  aria-hidden
+                  className="mt-0.5 size-4 shrink-0 rounded-[3px] border-[1.5px] border-rule-strong"
+                />
+                <span className="min-w-0">
+                  <RichText text={item} />
+                </span>
+              </li>
+            ))}
+          </ul>
+          {mission.stretchGoal ? (
+            <p className="mt-4 rounded-md border border-dashed border-rule-strong px-3.5 py-3 text-callout">
+              <span className="font-semibold">Stretch goal: </span>
+              <RichText text={mission.stretchGoal} />
+            </p>
+          ) : null}
+        </ScreenSection>
+      ) : null}
 
       <ScreenSection title="Hand in">
         <p className="text-callout">
