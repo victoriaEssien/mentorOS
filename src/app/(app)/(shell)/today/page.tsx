@@ -13,7 +13,7 @@ import { StaircaseMeter } from "@/components/system/staircase-meter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
-import { greetingFor, knownTimeZone, shortDate, TIME_ZONE_COOKIE } from "@/lib/local-time";
+import { greetingFor, knownTimeZone, shortDate, TIME_ZONE_COOKIE, today as todayIn } from "@/lib/local-time";
 import { durationLabel, missionTypeLabel, timeLeftLabel } from "@/lib/mission-labels";
 import { OUTCOME_BADGE } from "@/lib/outcomes";
 import { abilityLabel } from "@/lib/skill-labels";
@@ -21,19 +21,22 @@ import { nextAction, type NextAction } from "@/lib/today";
 import { cn } from "@/lib/utils";
 import { expireMissions, surpriseCheck } from "@/server/learning/loop";
 import { confidenceBand } from "@/server/learning/skill-estimate";
+import { getDailySetStatus } from "@/server/queries/assessments";
 import { hasPassword } from "@/server/queries/learner";
 import { getToday, type Today } from "@/server/queries/today";
+import { runnerConfigured } from "@/server/runner/run";
 import { requireLearner } from "@/server/session";
 
 import { GetMissionPanel, MissionOverPanel } from "../missions/mission-controls";
+import { GetDailySetPanel } from "./daily-set";
 import { EmailNotice, type EmailNoticeState } from "./email-notice";
 import { WriteDiagnosticPanel } from "./write-diagnostic";
 
 export const metadata: Metadata = { title: "Today" };
 
-// Writing today's mission, or a diagnostic onboarding couldn't, runs model calls inside this
-// route's server actions.
-export const maxDuration = 120;
+// Writing today's mission, today's coding set, or a diagnostic onboarding couldn't, runs model
+// calls (and, for the coding set, sandbox runs) inside this route's server actions.
+export const maxDuration = 300;
 
 type OpenAssessment = Today["openChecks"][number];
 
@@ -52,6 +55,8 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   ]);
   const timeZone = knownTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
   const { title, date } = greetingFor(user.name, timeZone);
+  // The coding set needs the sandbox; without it the section stays hidden.
+  const daily = runnerConfigured() ? await getDailySetStatus(user.id, todayIn(timeZone)) : undefined;
 
   const next = nextAction({
     openDiagnostic: today.openDiagnostic,
@@ -98,6 +103,38 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
       {emailState ? <EmailNotice state={emailState} email={user.email} /> : null}
 
       <NextCard next={next} />
+
+      {daily !== undefined && today.path.active ? (
+        <ScreenSection title="Daily five">
+          {daily === null ? (
+            <GetDailySetPanel />
+          ) : (
+            <Link
+              transitionTypes={NAV_FORWARD}
+              href={daily.completed ? `/assessments/${daily.id}/results` : `/assessments/${daily.id}`}
+              className="flex pressable items-center gap-4 rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="text-footnote text-muted-foreground">
+                  {daily.completed ? "Handed in" : `${daily.answered} of ${daily.total} answered`}
+                </span>
+                <span className="mt-1 block text-headline">
+                  {daily.completed ? "See how today's five went" : "Continue today's five"}
+                </span>
+              </span>
+              {daily.completed && daily.outcome ? (
+                <Badge variant={OUTCOME_BADGE[daily.outcome].variant}>
+                  {OUTCOME_BADGE[daily.outcome].label}
+                </Badge>
+              ) : (
+                <span className="font-mono text-callout text-muted-foreground tabular-nums">
+                  {daily.answered}/{daily.total}
+                </span>
+              )}
+            </Link>
+          )}
+        </ScreenSection>
+      ) : null}
 
       {current ? (
         <ScreenSection title="Focus">

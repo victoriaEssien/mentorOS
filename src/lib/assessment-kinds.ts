@@ -4,4 +4,5 @@ export const ASSESSMENT_KIND_LABEL = {
   knowledge_check: "Knowledge check",
   surprise: "Surprise check",
   reassessment: "Reassessment",
+  daily: "Daily five",
 } as const;

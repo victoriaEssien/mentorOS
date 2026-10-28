@@ -25,6 +25,7 @@ export default async function AssessmentPage({ params }: PageProps<"/assessments
       <AssessmentPlayer
         assessmentId={data.assessment.id}
         isDiagnostic={data.assessment.kind === "diagnostic"}
+        isDaily={data.assessment.kind === "daily"}
         title={data.assessment.title}
         reason={data.assessment.reason}
         items={data.items.map(({ id, type, prompt, timeLimitSeconds }) => ({

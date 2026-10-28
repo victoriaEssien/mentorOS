@@ -1,16 +1,18 @@
 import type { AssessmentResponse } from "@/lib/assessment-response";
+import { sameOutput } from "@/lib/code-languages";
 import type { AnswerGrade, SkillJudgement } from "@/server/ai/schemas";
 
 /**
  * Turning assessment answers into skill evidence (PRD §10). Pure: no database, no model.
  *
  * The model only ever judges the quality of a written answer. Everything else is decided here:
- * multiple choice is marked against the stored key, "I don't know" and blanks score zero, and the
+ * multiple choice is marked against the stored key, a predicted output against what the program
+ * really printed, code mostly by the tests it passes, "I don't know" and blanks score zero, and the
  * item's difficulty decides how much any answer says about ability.
  */
 
 /** Bump when the rules below change, so stored evaluations stay traceable. */
-export const GRADING_VERSION = "g2";
+export const GRADING_VERSION = "g3";
 
 export type Verdict = "strong" | "pass" | "partial" | "fail";
 
@@ -51,7 +53,14 @@ export const CONFIDENCE = {
   dontKnow: 0.6,
   writtenMin: 0.2,
   writtenMax: 0.9,
+  // Not a guess either way: the program printed what it printed.
+  predicted: 0.6,
+  // Tests are objective, so code that ran counts for at least this much.
+  testedMin: 0.6,
 } as const;
+
+/** How much of a code answer's quality comes from the tests; the rest is the review of code and reasoning. */
+export const TEST_WEIGHT = 0.7;
 
 export type GradingItem = {
   id: string;
@@ -60,20 +69,29 @@ export type GradingItem = {
   options: string[] | null;
   correctOption: number | null;
   skillSlugs: string[];
+  /** Predict the output: what the program really printed. */
+  expectedOutput?: string | null;
+  /** Answered with code that runs against tests. */
+  runsTests?: boolean;
 };
+
+/** How a code answer did against its tests. */
+export type TestTally = { passed: number; total: number; compiled: boolean };
 
 export type ItemGrade = {
   itemId: string;
   /** Quality of the answer, 0 to 1. */
   score: number;
   verdict: Verdict;
-  answer: "choice" | "text" | "unknown" | "blank";
+  answer: "choice" | "text" | "code" | "unknown" | "blank";
   gradedBy: "rules" | "model";
   /** For the learner: what was right and what was missing. Written answers only. */
   feedback: string | null;
   misconception: string | null;
   /** Per-skill evidence, with difficulty already applied to the scores. */
   judgements: SkillJudgement[];
+  /** Code answers: how many tests passed. */
+  tests?: TestTally;
 };
 
 /**
@@ -85,6 +103,30 @@ export function gradeByRules(item: GradingItem, response: AssessmentResponse | u
 
   if (response?.kind === "unknown") return zero(item, "unknown");
   if (!response || (response.kind === "text" && response.text.trim() === "")) return zero(item, "blank");
+  if (response.kind === "code" && (!item.runsTests || response.code.trim() === ""))
+    return zero(item, "blank");
+  if (item.runsTests && response.kind !== "code") return zero(item, "blank");
+  if (response.kind === "code") return null;
+
+  if (item.expectedOutput != null && response.kind === "text") {
+    const right = sameOutput(response.text, item.expectedOutput);
+    const evidence = `${right ? "Predicted the output exactly" : "Predicted the wrong output"}: ${snippet(item.question)}`;
+    return {
+      itemId: item.id,
+      score: right ? 1 : 0,
+      verdict: right ? "strong" : "fail",
+      answer: "text",
+      gradedBy: "rules",
+      feedback: null,
+      misconception: null,
+      judgements: item.skillSlugs.map((skill) => ({
+        skill,
+        score: demonstratedAbility(item.difficulty, right ? 1 : 0),
+        confidence: CONFIDENCE.predicted,
+        evidence,
+      })),
+    };
+  }
   // A written answer to a choice item, or a choice on a written item, can't come from the player.
   if (response.kind === "text" && isChoiceItem) return zero(item, "blank");
   if (response.kind === "choice" && !isChoiceItem) return zero(item, "blank");
@@ -125,6 +167,35 @@ export function gradeFromModel(item: GradingItem, grade: AnswerGrade): ItemGrade
       confidence: round(
         Math.min(CONFIDENCE.writtenMax, Math.max(CONFIDENCE.writtenMin, clamp01(judgement.confidence))),
       ),
+    })),
+  };
+}
+
+/**
+ * Code graded mostly by its tests: the share passed sets 70% of the quality, and the Skill
+ * Evaluator's review of the code and their explanation the rest. Code that didn't compile passes
+ * nothing.
+ */
+export function gradeCode(item: GradingItem, tests: TestTally, grade: AnswerGrade): ItemGrade {
+  const passRatio = tests.compiled && tests.total > 0 ? tests.passed / tests.total : 0;
+  const blend = (review: number) => clamp01(TEST_WEIGHT * passRatio + (1 - TEST_WEIGHT) * clamp01(review));
+  const score = round(blend(grade.score));
+  return {
+    itemId: item.id,
+    score,
+    verdict: verdictFor(score),
+    answer: "code",
+    gradedBy: "model",
+    feedback: grade.feedback,
+    misconception: grade.misconception,
+    tests,
+    judgements: grade.skills.map((judgement) => ({
+      ...judgement,
+      score: demonstratedAbility(item.difficulty, blend(judgement.score)),
+      confidence: round(
+        Math.min(CONFIDENCE.writtenMax, Math.max(CONFIDENCE.testedMin, clamp01(judgement.confidence))),
+      ),
+      evidence: `${tests.compiled ? `Passed ${tests.passed} of ${tests.total} tests` : "Didn't compile"}. ${judgement.evidence}`,
     })),
   };
 }

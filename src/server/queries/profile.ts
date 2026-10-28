@@ -4,6 +4,7 @@ import type { Route } from "next";
 
 import { db } from "@/db";
 import { assessment, assessmentAttempt, skillEvidence, userSkill, userTrack } from "@/db/schema";
+import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
 import { replayEvidence } from "@/server/learning/evidence";
 
 import { getTaxonomy } from "./skills";
@@ -69,13 +70,6 @@ export async function getSkillProfile(userId: string) {
 
 export type SkillProfile = Awaited<ReturnType<typeof getSkillProfile>>;
 
-const ASSESSMENT_LABEL = {
-  diagnostic: "Diagnostic",
-  knowledge_check: "Knowledge check",
-  surprise: "Surprise check",
-  reassessment: "Reassessment",
-} as const;
-
 const SOURCE_LABEL = {
   assessment: "Assessment",
   quiz: "Quiz",
@@ -134,7 +128,7 @@ export async function getSkillDetail(userId: string, slug: string) {
     .map((row) => ({
       id: row.id,
       createdAt: row.createdAt,
-      source: row.assessmentKind ? ASSESSMENT_LABEL[row.assessmentKind] : SOURCE_LABEL[row.sourceType],
+      source: row.assessmentKind ? ASSESSMENT_KIND_LABEL[row.assessmentKind] : SOURCE_LABEL[row.sourceType],
       href: row.assessmentId ? (`/assessments/${row.assessmentId}/results` as Route) : null,
       summary: row.summary,
       delta: row.delta,

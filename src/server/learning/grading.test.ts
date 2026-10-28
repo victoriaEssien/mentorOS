@@ -4,6 +4,7 @@ import {
   CONFIDENCE,
   demonstratedAbility,
   gradeByRules,
+  gradeCode,
   gradeFromModel,
   overallScore,
   snippet,
@@ -143,5 +144,69 @@ describe("snippet", () => {
     expect(long.endsWith("…”")).toBe(true);
     expect(long.length).toBeLessThanOrEqual(83);
     expect(long).not.toMatch(/\s…/);
+  });
+});
+
+describe("code and predicted output", () => {
+  const predictItem: GradingItem = {
+    ...writtenItem,
+    id: "predict",
+    difficulty: 3,
+    skillSlugs: ["functions"],
+    expectedOutput: "3\n1\n",
+  };
+  const codeItem: GradingItem = {
+    ...writtenItem,
+    id: "code",
+    difficulty: 3,
+    skillSlugs: ["graphs"],
+    runsTests: true,
+  };
+  const review = {
+    score: 1,
+    skills: [{ skill: "graphs", score: 1, confidence: 0.3, evidence: "Clear BFS reasoning." }],
+    misconception: null,
+    feedback: "Clean BFS.",
+  };
+
+  it("marks a predicted output exactly, ignoring trailing whitespace", () => {
+    expect(gradeByRules(predictItem, { kind: "text", text: "3  \n1\n\n" })).toMatchObject({
+      score: 1,
+      verdict: "strong",
+      gradedBy: "rules",
+    });
+    expect(gradeByRules(predictItem, { kind: "text", text: "3\n2" })).toMatchObject({
+      score: 0,
+      verdict: "fail",
+    });
+  });
+
+  it("leaves code to the tests, and treats empty or misplaced code as blank", () => {
+    expect(gradeByRules(codeItem, { kind: "code", code: "fn main() {}", explanation: "" })).toBeNull();
+    expect(gradeByRules(codeItem, { kind: "code", code: "  ", explanation: "BFS" })).toMatchObject({
+      answer: "blank",
+    });
+    expect(gradeByRules(codeItem, { kind: "text", text: "BFS" })).toMatchObject({ answer: "blank" });
+    expect(gradeByRules(writtenItem, { kind: "code", code: "x", explanation: "" })).toMatchObject({
+      answer: "blank",
+    });
+  });
+
+  it("weighs tests passed over the review, and gives code that didn't compile no test credit", () => {
+    const allPass = gradeCode(codeItem, { passed: 8, total: 8, compiled: true }, review);
+    expect(allPass).toMatchObject({
+      score: 1,
+      verdict: "strong",
+      answer: "code",
+      tests: { passed: 8, total: 8 },
+    });
+    expect(allPass.judgements[0]!.confidence).toBe(CONFIDENCE.testedMin);
+
+    const half = gradeCode(codeItem, { passed: 4, total: 8, compiled: true }, review);
+    expect(half.score).toBe(0.65);
+
+    const broken = gradeCode(codeItem, { passed: 0, total: 8, compiled: false }, review);
+    expect(broken.score).toBe(0.3);
+    expect(broken.judgements[0]!.evidence).toMatch(/^Didn't compile/);
   });
 });

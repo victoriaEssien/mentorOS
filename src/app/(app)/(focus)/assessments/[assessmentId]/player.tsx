@@ -26,9 +26,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { itemTypeLabel } from "@/lib/assessment-labels";
 import { isAnswered, type AssessmentResponse, type ItemPrompt } from "@/lib/assessment-response";
+import { CODE_LANGUAGE_LABEL, TESTED_ITEM_TYPES } from "@/lib/code-languages";
 import { cn } from "@/lib/utils";
 
 import { finishAssessmentAction, saveResponseAction } from "./actions";
+import { CodeAnswer } from "./code-answer";
 import { HintSheet } from "./hint-sheet";
 
 export type PlayerItem = {
@@ -49,6 +51,7 @@ const SAVE_DELAY_MS = 700;
 export function AssessmentPlayer({
   assessmentId,
   isDiagnostic,
+  isDaily = false,
   title,
   reason,
   items,
@@ -56,6 +59,8 @@ export function AssessmentPlayer({
 }: {
   assessmentId: string;
   isDiagnostic: boolean;
+  /** The daily coding set: code answers run against hidden tests when it's handed in. */
+  isDaily?: boolean;
   title: string;
   reason: string | null;
   items: PlayerItem[];
@@ -77,6 +82,7 @@ export function AssessmentPlayer({
   const pendingSave = useRef<{ itemId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const item = items[index];
   const response = responses[item.id];
+  const tested = TESTED_ITEM_TYPES.includes(item.type);
   const last = index === items.length - 1;
   const unanswered = items.filter((i) => !isAnswered(responses[i.id])).length;
 
@@ -149,9 +155,10 @@ export function AssessmentPlayer({
 
   if (finishing) {
     return (
-      <WorkingScreen title="Reading your answers">
-        Each answer is checked against what a strong answer covers, then recorded as evidence for your skill
-        profile. This takes about a minute; keep this screen open.
+      <WorkingScreen title={isDaily ? "Running your code" : "Reading your answers"}>
+        {isDaily
+          ? "Your code runs against every hidden test, then each answer is reviewed and recorded as evidence for your skill profile. This takes a minute or two; keep this screen open."
+          : "Each answer is checked against what a strong answer covers, then recorded as evidence for your skill profile. This takes about a minute; keep this screen open."}
       </WorkingScreen>
     );
   }
@@ -163,6 +170,7 @@ export function AssessmentPlayer({
         reason={reason}
         items={items}
         isDiagnostic={isDiagnostic}
+        isDaily={isDaily}
         onStart={() => setStarted(true)}
       />
     );
@@ -197,27 +205,54 @@ export function AssessmentPlayer({
           className="animate-in duration-300 fade-in slide-in-from-right-4 motion-reduce:animate-none"
         >
           <div className="flex min-h-7 items-center justify-between gap-3">
-            <Badge>{itemTypeLabel(item.type)}</Badge>
+            <span className="flex items-center gap-2">
+              <Badge>{itemTypeLabel(item.type)}</Badge>
+              {item.prompt.language ? (
+                <Badge variant="outline">{CODE_LANGUAGE_LABEL[item.prompt.language]}</Badge>
+              ) : null}
+            </span>
             <span className="flex items-center gap-3">
               {item.timeLimitSeconds ? <Countdown seconds={item.timeLimitSeconds} onExpire={timeUp} /> : null}
               <HintSheet key={item.id} assessmentId={assessmentId} itemId={item.id} />
             </span>
           </div>
-          <h1
-            className={cn(
-              "mt-4 text-pretty",
-              // Scenario prompts run to a paragraph; a paragraph in bold is a wall.
-              item.prompt.question.length > 220
-                ? "text-[1.0625rem] leading-relaxed font-medium"
-                : "text-[1.1875rem] leading-snug font-semibold",
-            )}
-          >
-            <RichText text={item.prompt.question} />
-          </h1>
-          {item.prompt.code ? <CodeBlock code={item.prompt.code} className="mt-4" /> : null}
+          {item.prompt.title ? (
+            <>
+              <h1 className="mt-4 text-[1.1875rem] leading-snug font-semibold text-pretty">
+                {item.prompt.title}
+              </h1>
+              <div className="mt-2 text-callout leading-relaxed text-pretty">
+                <RichText text={item.prompt.question} />
+              </div>
+            </>
+          ) : (
+            <h1
+              className={cn(
+                "mt-4 text-pretty",
+                // Scenario prompts run to a paragraph; a paragraph in bold is a wall.
+                item.prompt.question.length > 220
+                  ? "text-[1.0625rem] leading-relaxed font-medium"
+                  : "text-[1.1875rem] leading-snug font-semibold",
+              )}
+            >
+              <RichText text={item.prompt.question} />
+            </h1>
+          )}
+          {item.prompt.code && !tested ? <CodeBlock code={item.prompt.code} className="mt-4" /> : null}
 
           <div className="mt-6">
-            {item.prompt.options ? (
+            {tested && item.prompt.language ? (
+              <CodeAnswer
+                key={item.id}
+                assessmentId={assessmentId}
+                itemId={item.id}
+                language={item.prompt.language}
+                starter={item.prompt.code ?? ""}
+                examples={item.prompt.examples ?? []}
+                value={response?.kind === "code" ? response : null}
+                onChange={(value) => answer({ kind: "code", ...value }, { debounce: true })}
+              />
+            ) : item.prompt.options ? (
               <Choices
                 options={item.prompt.options}
                 value={response?.kind === "choice" ? response.option : null}
@@ -226,11 +261,18 @@ export function AssessmentPlayer({
             ) : (
               <Textarea
                 aria-label="Your answer"
-                placeholder="Answer in your own words. A few sentences is plenty."
+                placeholder={
+                  item.type === "predict_output"
+                    ? "Exactly what it prints, line by line."
+                    : item.type === "explain_code"
+                      ? "What it does, why it works, and its time and space complexity."
+                      : "Answer in your own words. A few sentences is plenty."
+                }
                 value={response?.kind === "text" ? response.text : ""}
                 onChange={(event) => answer({ kind: "text", text: event.target.value }, { debounce: true })}
                 maxLength={4000}
-                className="min-h-44"
+                spellCheck={item.type !== "predict_output"}
+                className={cn("min-h-44", item.type === "predict_output" && "font-mono text-[0.875rem]")}
               />
             )}
             {response?.kind === "unknown" ? (
@@ -310,24 +352,43 @@ function Intro({
   reason,
   items,
   isDiagnostic,
+  isDaily,
   onStart,
 }: {
   title: string;
   reason: string | null;
   items: PlayerItem[];
   isDiagnostic: boolean;
+  isDaily: boolean;
   onStart: () => void;
 }) {
-  // Choice questions take about a minute; written answers about three.
-  const estimate = items.reduce((sum, item) => sum + (item.prompt.options ? 1 : 3), 0);
+  // Choice questions take about a minute, written answers about three, code about twenty.
+  const estimate = items.reduce(
+    (sum, item) =>
+      sum +
+      (TESTED_ITEM_TYPES.includes(item.type)
+        ? 20
+        : item.type === "explain_code"
+          ? 6
+          : item.prompt.options
+            ? 1
+            : 3),
+    0,
+  );
   const minutes = Math.max(5, Math.round(estimate / 5) * 5);
-  const rules = [
-    "Answer in your own words. Nothing is marked on style.",
-    "“I don’t know” is a real answer. An honest gap tells the mentor more than a lucky guess.",
-    isDiagnostic
-      ? "Questions start easy and get harder on purpose. Nobody is expected to answer all of them."
-      : "Questions get harder as you go.",
-  ];
+  const rules = isDaily
+    ? [
+        "Code reads stdin and prints to stdout. Run it against the examples as often as you like; hidden tests run when you hand in.",
+        "Tests decide most of the score. Your approach and its complexity decide the rest.",
+        "“I don’t know” is a real answer. An honest gap tells the mentor more than a lucky guess.",
+      ]
+    : [
+        "Answer in your own words. Nothing is marked on style.",
+        "“I don’t know” is a real answer. An honest gap tells the mentor more than a lucky guess.",
+        isDiagnostic
+          ? "Questions start easy and get harder on purpose. Nobody is expected to answer all of them."
+          : "Questions get harder as you go.",
+      ];
 
   return (
     <div className="flex min-h-dvh flex-col">

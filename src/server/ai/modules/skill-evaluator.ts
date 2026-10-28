@@ -15,7 +15,7 @@ import { answerGradeSchema, type AnswerGrade } from "../schemas";
  * standards don't).
  */
 
-export const PROMPT_VERSION = "v2";
+export const PROMPT_VERSION = "v3";
 
 const SYSTEM_PROMPT = `
 You grade one written answer for mentorOS, an AI-managed technical apprenticeship. The grade
@@ -40,6 +40,11 @@ How to grade:
   skill, about 0.3 when it tells you little.
 - evidence: one plain sentence per skill about what the answer did, for example "Traced the loop
   correctly but missed that break stops it at -1." It appears in the learner's skill history.
+- Code answers (from the daily coding set) arrive with their test results, which already count for
+  most of the grade. Don't re-judge correctness the tests settled. Score what they can't see: whether
+  the approach and its stated complexity are right and fit the constraints, whether the explanation
+  matches the code, and how clear and idiomatic the code is for its language. Failing tests still
+  tell you where the reasoning broke, so say so in the feedback.
 - misconception: the specific misunderstanding the answer reveals, stated as what they believe
   ("Thinks no-cache forbids storing the response"), or null when there isn't one.
 - feedback: two or three sentences to the learner, as "you". Say what was right, what was missing,

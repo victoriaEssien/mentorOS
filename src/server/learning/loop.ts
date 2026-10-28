@@ -7,6 +7,7 @@ import { getActiveTrackIds } from "@/server/queries/skills";
 
 import { gradeAttempt } from "./assessment-grading";
 import { checkOnSkill, surpriseCheckIfDue } from "./checks";
+import { ensureDailySet, runExamples } from "./daily";
 import { ensureDiagnostic } from "./diagnostic";
 import { getMentorThread, hintOnQuestion, replyInThread } from "./mentor-chat";
 import { assignMission, expireOverdueMissions, type Cadence } from "./missions";
@@ -171,6 +172,19 @@ export function surpriseCheck(userId: string): Promise<{ assessmentId: string } 
     .finally(() => surprisesInFlight.delete(userId));
   surprisesInFlight.set(userId, pending);
   return pending;
+}
+
+/**
+ * The learner's daily coding set for their calendar day (Part C), written first if there isn't one:
+ * five questions in parallel, each run in the sandbox before it's kept, a minute or two in all.
+ */
+export async function dailySet(userId: string, day: string): Promise<{ assessmentId: string }> {
+  return { assessmentId: await ensureDailySet(userId, day) };
+}
+
+/** Runs code for a daily question against its examples. Records nothing; capped per hour. */
+export async function runDailyCode(userId: string, assessmentId: string, itemId: string, code: string) {
+  return runExamples(userId, assessmentId, itemId, code);
 }
 
 /** The learner's mentor thread with its recent messages, started on first visit (PRD §21). */

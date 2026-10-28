@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { assessment, assessmentAttempt, assessmentItem, assessmentResponse, evaluation } from "@/db/schema";
-import type { AssessmentResponse, ItemPrompt } from "@/lib/assessment-response";
+import { isAnswered, type AssessmentResponse, type ItemPrompt } from "@/lib/assessment-response";
 import { withoutSupersededDiagnostics } from "@/lib/superseded-diagnostics";
 import type { GeneratedAssessmentItem } from "@/server/ai/schemas";
 import type { AttemptEvaluationResult } from "@/server/learning/assessment-grading";
@@ -138,7 +138,11 @@ export async function getAssessmentResults(userId: string, assessmentId: string)
     const grade = gradeByItem.get(item.id);
     if (!grade) return [];
     const prompt = item.prompt as ItemPrompt;
-    const rubric = item.rubric as GeneratedAssessmentItem["rubric"];
+    // Daily set rubrics add a working solution, or what a program really printed.
+    const rubric = item.rubric as GeneratedAssessmentItem["rubric"] & {
+      solution?: string | null;
+      output?: string | null;
+    };
     return [
       {
         itemId: item.id,
@@ -147,6 +151,8 @@ export async function getAssessmentResults(userId: string, assessmentId: string)
         prompt,
         expected: rubric.expected,
         correctOption: rubric.correctOption,
+        solution: rubric.solution ?? null,
+        output: rubric.output ?? null,
         response: responseByItem.get(item.id) ?? null,
         grade,
       },
@@ -202,4 +208,50 @@ export async function getAssessmentHistory(userId: string) {
     ...row,
     score: result ? (result as AttemptEvaluationResult).score : null,
   }));
+}
+
+/**
+ * Today's daily coding set, if it's been written: how many of its questions have an answer so far,
+ * and how it went once handed in.
+ */
+export async function getDailySetStatus(userId: string, day: string) {
+  const [set] = await db
+    .select({ id: assessment.id })
+    .from(assessment)
+    .where(and(eq(assessment.userId, userId), eq(assessment.kind, "daily"), eq(assessment.day, day)))
+    .limit(1);
+  if (!set) return null;
+
+  const [items, [attempt]] = await Promise.all([
+    db.select({ id: assessmentItem.id }).from(assessmentItem).where(eq(assessmentItem.assessmentId, set.id)),
+    db
+      .select({
+        id: assessmentAttempt.id,
+        completedAt: assessmentAttempt.completedAt,
+        outcome: evaluation.outcome,
+        result: evaluation.result,
+      })
+      .from(assessmentAttempt)
+      .leftJoin(evaluation, eq(evaluation.attemptId, assessmentAttempt.id))
+      .where(and(eq(assessmentAttempt.assessmentId, set.id), eq(assessmentAttempt.userId, userId)))
+      .orderBy(desc(assessmentAttempt.startedAt))
+      .limit(1),
+  ]);
+  const responses = attempt
+    ? await db
+        .select({ response: assessmentResponse.response })
+        .from(assessmentResponse)
+        .where(eq(assessmentResponse.attemptId, attempt.id))
+    : [];
+
+  return {
+    id: set.id,
+    total: items.length,
+    answered: responses.filter((row) =>
+      isAnswered((row.response ?? undefined) as AssessmentResponse | undefined),
+    ).length,
+    completed: Boolean(attempt?.completedAt),
+    outcome: attempt?.outcome ?? null,
+    score: attempt?.result ? (attempt.result as AttemptEvaluationResult).score : null,
+  };
 }
