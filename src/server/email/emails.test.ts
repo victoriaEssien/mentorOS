@@ -4,7 +4,7 @@ import { readUnsubscribeToken } from "@/lib/unsubscribe-token";
 import { take } from "@/server/throttle";
 
 import { confirmEmail, resetPasswordEmail, sendLinkEmail } from "./account-emails";
-import { reminderEmail, weeklyProgressEmail } from "./engagement-emails";
+import { dailyEmail, weeklyProgressEmail, type DailyDigest } from "./engagement-emails";
 import { escapeHtml, renderEmail } from "./layout";
 import { sendEmail } from "./send";
 
@@ -193,22 +193,47 @@ describe("weeklyProgressEmail", () => {
   });
 });
 
-describe("reminderEmail", () => {
-  const point = {
-    headline: "Today's mission is waiting",
-    detail: null,
-    action: "Open Today",
-    path: "/today",
+describe("dailyEmail", () => {
+  const digest: DailyDigest = {
+    point: {
+      headline: "Your mission is still waiting",
+      detail: "Trace a local HTTP endpoint.",
+      action: "Pick it up",
+      path: "/missions/m-1",
+    },
+    yesterday: [{ title: "Daily five", label: "Daily five", outcome: "pass" as const }],
+    daysSinceHandIn: 0,
+    dailyFive: { state: "not-started" },
+    week: { fivesDone: 3, missions: "2 of 3 handed in, 1 missed" },
   };
 
-  it("leads with what's waiting and unsubscribes from reminders only", () => {
-    const email = reminderEmail(learner, point, "2026-10-21");
-    expect(email.subject).toBe("Today's mission is waiting");
-    expect(email.idempotencyKey).toBe("reminder/user-1/2026-10-21");
+  it("leads with today's step and unsubscribes from the daily email only", () => {
+    const email = dailyEmail(learner, digest, "2026-10-21");
+    expect(email.subject).toBe("Your mission is still waiting");
+    expect(email.idempotencyKey).toBe("daily/user-1/2026-10-21");
     expect(oneClickToken(email.headers?.["List-Unsubscribe"])).toEqual({
       userId: "user-1",
       topic: "reminders",
     });
-    expect(email.text).toContain("https://mentoros.test/today");
+    expect(email.text).toContain("https://mentoros.test/missions/m-1");
+  });
+
+  it("says what was handed in, today's five and the week", () => {
+    const { text } = dailyEmail(learner, digest, "2026-10-21");
+    expect(text).toContain("Since yesterday you handed in:");
+    expect(text).toContain("Daily five, passed");
+    expect(text).toContain("Today's five: ready when you are.");
+    expect(text).toContain("Last 7 days: 3 daily fives done; daily missions 2 of 3 handed in, 1 missed.");
+    expect(text).not.toContain("at most once a week");
+  });
+
+  it("keeps coming after time away, and says how long it's been", () => {
+    const { text } = dailyEmail(
+      learner,
+      { ...digest, yesterday: [], daysSinceHandIn: 9, dailyFive: null },
+      "2026-10-21",
+    );
+    expect(text).toContain("Your last hand-in was 9 days ago.");
+    expect(text).not.toContain("Today's five");
   });
 });

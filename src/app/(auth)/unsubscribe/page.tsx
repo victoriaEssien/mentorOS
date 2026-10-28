@@ -10,7 +10,7 @@ import { UnsubscribePanel } from "./unsubscribe-panel";
 
 export const metadata: Metadata = { title: "Unsubscribe" };
 
-const WHAT: Record<EmailTopic, string> = { weekly: "weekly progress emails", reminders: "reminders" };
+const WHAT: Record<EmailTopic, string> = { weekly: "weekly progress emails", reminders: "daily emails" };
 
 /** Where an email's "Stop these emails" link lands. Signed in or not, one button and it's done. */
 export default function UnsubscribePage({ searchParams }: PageProps<"/unsubscribe">) {
