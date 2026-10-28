@@ -19,7 +19,7 @@ export function StudyGuideView({ guide }: { guide: StudyGuide }) {
                 {index + 1}
               </span>
               <span className="min-w-0">
-                <span className="block text-callout font-semibold">{item.idea}</span>
+                <span className="block text-callout font-medium">{item.idea}</span>
                 <span className="mt-0.5 block text-footnote text-muted-foreground">{item.why}</span>
               </span>
             </li>
