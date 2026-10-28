@@ -72,8 +72,8 @@ const sections: LegalSection[] = [
           </li>
           <li>To send account emails, such as confirming your address or resetting your password.</li>
           <li>
-            To send the weekly progress email and reminders, if you leave them on. You can turn them off in
-            Settings or from the link in any of those emails.
+            To send the weekly progress email and the daily email, if you leave them on. You can turn them off
+            in Settings or from the link in any of those emails.
           </li>
           <li>
             To keep the service and your account secure, for example by limiting repeated sign-in attempts.

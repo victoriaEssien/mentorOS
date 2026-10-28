@@ -396,13 +396,13 @@ export function EmailSwitches({ weekly, reminders }: { weekly: boolean; reminder
       <EmailSwitch
         topic="weekly"
         label="Weekly progress"
-        detail="Mondays: what your work showed, and what's next."
+        detail="Mondays: what your work showed, and what's next. Takes the place of that day's daily email."
         on={weekly}
       />
       <EmailSwitch
         topic="reminders"
-        label="Reminders"
-        detail="After four days away. At most one a week, and never more than two in a row."
+        label="Daily email"
+        detail="Every morning: what you did yesterday, and today's next step."
         on={reminders}
       />
     </>

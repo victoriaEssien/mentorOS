@@ -4,20 +4,19 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { weeklyPostDraft } from "@/server/learning/loop";
 import { NothingToPostError } from "@/server/learning/weekly-post";
-import { getReminderPoint, getWeeklyDigest } from "@/server/queries/emails";
+import { getDailyDigest, getWeeklyDigest } from "@/server/queries/emails";
 import { getWeekPost } from "@/server/queries/posts";
 
-import { reminderEmail, weeklyProgressEmail } from "./engagement-emails";
+import { dailyEmail, weeklyProgressEmail } from "./engagement-emails";
 import { sendEmail, type SendResult } from "./send";
 
 /**
  * The once-a-day job (Vercel Cron, see vercel.json). On Mondays: weekly progress for anyone whose
- * work produced evidence in the last seven days. Every day: a reminder for anyone away four days
- * or more. Rules that keep it from becoming noise:
+ * work produced evidence in the last seven days. Every day: the daily email for everyone else who
+ * has it on, whether they were busy yesterday or away for a month. Rules that keep it sane:
  *
  * - only confirmed addresses, and only the topics they haven't turned off;
- * - at most one of these emails a person a day, and each kind at most once a week;
- * - reminders stop after two go unanswered, and for anyone gone a month;
+ * - at most one of these emails a person a day (a Monday weekly email takes the daily one's place);
  * - never more than DAILY_SEND_CAP in a run.
  *
  * Each send is claimed in email_settings first, so a retried or overlapping run can't send twice.
@@ -26,20 +25,19 @@ import { sendEmail, type SendResult } from "./send";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Resend's free plan sends 100 emails a day; this leaves room for account emails. */
 export const DAILY_SEND_CAP = 80;
-const REMIND_AFTER_DAYS = 4;
-const STOP_REMINDING_AFTER_DAYS = 30;
-const MAX_UNANSWERED_REMINDERS = 2;
-/** A week less a day: the job runs daily, so this lands each kind exactly a week apart. */
+/** A week less a day: the job runs daily, so this lands each weekly email exactly a week apart. */
 const ONCE_A_WEEK_MS = 6 * DAY_MS;
+/** Less than a day, so a run that drifts later than yesterday's still sends. */
+const ONCE_A_DAY_MS = 20 * 60 * 60 * 1000;
 const SENDING_AT_ONCE = 4;
 
-type Learner = { id: string; name: string | null; email: string; last_active?: string };
+type Learner = { id: string; name: string | null; email: string };
 
-export type DailySummary = { weekly: number; reminders: number; logged: number; failed: number };
+export type DailySummary = { weekly: number; daily: number; logged: number; failed: number };
 
 export async function runDailyEmails(now: Date = new Date()): Promise<DailySummary> {
-  const summary: DailySummary = { weekly: 0, reminders: 0, logged: 0, failed: 0 };
-  const count = (result: SendResult, kind: "weekly" | "reminders") => {
+  const summary: DailySummary = { weekly: 0, daily: 0, logged: 0, failed: 0 };
+  const count = (result: SendResult, kind: "weekly" | "daily") => {
     if (result === "sent") summary[kind]++;
     else summary[result]++;
   };
@@ -60,11 +58,11 @@ export async function runDailyEmails(now: Date = new Date()): Promise<DailySumma
 
   if (budget > 0) {
     const dayKey = now.toISOString().slice(0, 10);
-    const learners = await reminderCandidates(now, budget);
+    const learners = await dailyCandidates(now, budget);
     await eachInTurn(learners, async (learner) => {
-      if (!learner.last_active || !(await claimReminder(learner.id, learner.last_active, now))) return;
-      const point = await getReminderPoint(learner.id);
-      count(await sendEmail(reminderEmail(recipient(learner), point, dayKey)), "reminders");
+      if (!(await claimDaily(learner.id, now))) return;
+      const digest = await getDailyDigest(learner.id, now);
+      count(await sendEmail(dailyEmail(recipient(learner), digest, dayKey)), "daily");
     });
   }
 
@@ -118,54 +116,30 @@ async function claimWeekly(userId: string, now: Date): Promise<boolean> {
   return rows.length > 0;
 }
 
-/**
- * Away means no session use, evidence or mission activity for four days. A reminder that went
- * unanswered counts against them; coming back resets the count.
- */
-async function reminderCandidates(now: Date, limit: number): Promise<Learner[]> {
+/** Everyone with the daily email on who hasn't had today's email, or a weekly one this morning. */
+async function dailyCandidates(now: Date, limit: number): Promise<Learner[]> {
   const { rows } = await db.execute(sql`
-    select u.id, u.name, u.email, a.last_active
+    select u.id, u.name, u.email
     from "user" u
     join learner_profile lp on lp.user_id = u.id and lp.onboarding_completed_at is not null
-    cross join lateral (
-      select greatest(
-        (select max(s.updated_at) from session s where s.user_id = u.id),
-        (select max(se.created_at) from skill_evidence se where se.user_id = u.id),
-        (select max(m.updated_at) from mission m where m.user_id = u.id)
-      ) as last_active
-    ) a
     left join email_settings es on es.user_id = u.id
     where u.email_verified
       and coalesce(es.reminders, true)
-      and a.last_active <= ${new Date(now.getTime() - REMIND_AFTER_DAYS * DAY_MS)}::timestamptz
-      and a.last_active >= ${new Date(now.getTime() - STOP_REMINDING_AFTER_DAYS * DAY_MS)}::timestamptz
-      and (es.last_reminder_at is null or es.last_reminder_at < ${new Date(now.getTime() - ONCE_A_WEEK_MS)}::timestamptz)
-      and (
-        es.last_reminder_at is null
-        or a.last_active > es.last_reminder_at
-        or es.reminders_unanswered < ${MAX_UNANSWERED_REMINDERS}
-      )
+      and (es.last_reminder_at is null or es.last_reminder_at < ${new Date(now.getTime() - ONCE_A_DAY_MS)}::timestamptz)
       and (es.last_weekly_at is null or es.last_weekly_at < ${new Date(now.getTime() - DAY_MS / 2)}::timestamptz)
-    order by a.last_active desc
+    order by es.last_reminder_at asc nulls first
     limit ${limit}
   `);
   return rows as Learner[];
 }
 
-async function claimReminder(userId: string, lastActive: string, now: Date): Promise<boolean> {
+async function claimDaily(userId: string, now: Date): Promise<boolean> {
   const { rows } = await db.execute(sql`
-    insert into email_settings (user_id, last_reminder_at, reminders_unanswered, updated_at)
-    values (${userId}, ${now}::timestamptz, 1, ${now}::timestamptz)
-    on conflict (user_id) do update set
-      last_reminder_at = excluded.last_reminder_at,
-      reminders_unanswered = case
-        when email_settings.last_reminder_at is null
-          or ${lastActive}::timestamptz > email_settings.last_reminder_at then 1
-        else email_settings.reminders_unanswered + 1
-      end,
-      updated_at = excluded.updated_at
+    insert into email_settings (user_id, last_reminder_at, updated_at)
+    values (${userId}, ${now}::timestamptz, ${now}::timestamptz)
+    on conflict (user_id) do update set last_reminder_at = excluded.last_reminder_at, updated_at = excluded.updated_at
     where email_settings.last_reminder_at is null
-      or email_settings.last_reminder_at < ${new Date(now.getTime() - ONCE_A_WEEK_MS)}::timestamptz
+      or email_settings.last_reminder_at < ${new Date(now.getTime() - ONCE_A_DAY_MS)}::timestamptz
     returning user_id
   `);
   return rows.length > 0;

@@ -7,9 +7,9 @@ import type { OutgoingEmail } from "./send";
 import { appUrl, unsubscribeLinks } from "./urls";
 
 /**
- * The emails someone can turn off: weekly progress on Mondays, and a reminder when they've been
- * away. Both are built from their record in plain code (no model calls), carry a one-click
- * unsubscribe, and point at one thing to do.
+ * The emails someone can turn off: weekly progress on Mondays, and the daily email every other
+ * morning (and on Mondays when there's no weekly one). Both are built from their record in plain
+ * code, carry a one-click unsubscribe, and point at one thing to do.
  */
 
 type Recipient = { userId: string; name: string | null; email: string };
@@ -109,27 +109,92 @@ export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey
   };
 }
 
-/** What a reminder points at: whatever Today would put first for them. */
-export type ReminderPoint = { headline: string; detail: string | null; action: string; path: string };
+/** What today asks of them: whatever Today would put first. */
+export type TodayPoint = { headline: string; detail: string | null; action: string; path: string };
 
-export function reminderEmail(to: Recipient, point: ReminderPoint, dayKey: string): OutgoingEmail {
+/** Everything the daily email says, read from their record. */
+export type DailyDigest = {
+  point: TodayPoint;
+  /** What was handed in over the last day. */
+  yesterday: { title: string; label: string; outcome: Outcome }[];
+  /** Days since their last hand-in; null if they've never handed anything in. */
+  daysSinceHandIn: number | null;
+  /** Today's coding set, or null when it isn't offered yet (no path, or code can't run). */
+  dailyFive:
+    | { state: "not-started" }
+    | { state: "in-progress"; answered: number; total: number }
+    | { state: "done" }
+    | null;
+  week: { fivesDone: number; missions: string | null };
+};
+
+/**
+ * The daily email: what they did yesterday, what today asks, and how the week is going. It comes
+ * every day they leave it on, including after time away: that's when it's most useful.
+ */
+export function dailyEmail(to: Recipient, digest: DailyDigest, dayKey: string): OutgoingEmail {
   const links = unsubscribeLinks(to.userId, "reminders");
+  const { point, yesterday, daysSinceHandIn, dailyFive, week } = digest;
+  const hi = `Hi ${firstName(to.name)}.`;
+
+  const blocks: Block[] = [];
+  if (yesterday.length > 0) {
+    blocks.push(
+      { kind: "text", text: `${hi} Since yesterday you handed in:` },
+      {
+        kind: "list",
+        items: yesterday.map((r) => {
+          const what = r.title.toLowerCase().startsWith(r.label.toLowerCase())
+            ? r.title
+            : `${r.label}: ${r.title}`;
+          return `${what}, ${OUTCOME_WORDS[r.outcome]}`;
+        }),
+      },
+    );
+  } else if (daysSinceHandIn !== null && daysSinceHandIn >= 2) {
+    blocks.push({
+      kind: "text",
+      text: `${hi} Your last hand-in was ${daysSinceHandIn} days ago. One small thing today gets you moving again.`,
+    });
+  } else {
+    blocks.push({
+      kind: "text",
+      text: daysSinceHandIn === null ? hi : `${hi} Nothing was handed in yesterday.`,
+    });
+  }
+  if (point.detail) blocks.push({ kind: "text", text: point.detail });
+  if (dailyFive) {
+    blocks.push({
+      kind: "text",
+      text:
+        dailyFive.state === "done"
+          ? "Today's five: done."
+          : dailyFive.state === "in-progress"
+            ? `Today's five: ${dailyFive.answered} of ${dailyFive.total} answered.`
+            : "Today's five: ready when you are.",
+    });
+  }
+  const weekLine = [
+    `${week.fivesDone} daily ${week.fivesDone === 1 ? "five" : "fives"} done`,
+    week.missions ? `daily missions ${week.missions}` : null,
+  ].filter(Boolean);
+  blocks.push({ kind: "text", text: `Last 7 days: ${weekLine.join("; ")}.` });
+
   const { html, text } = renderEmail({
-    preheader: point.detail ?? "Pick up where you left off.",
+    preheader:
+      point.detail ??
+      (yesterday.length > 0 ? `You handed in ${yesterday.length} yesterday.` : "Here's today."),
     title: point.headline,
-    blocks: [
-      { kind: "text", text: `Hi ${firstName(to.name)}, it's been a few days.` },
-      ...(point.detail ? [{ kind: "text" as const, text: point.detail }] : []),
-    ],
+    blocks,
     action: { label: point.action, url: appUrl(point.path) },
     after: [
       {
         kind: "muted",
-        text: "Reminders come at most once a week, and stop after two if you're busy. They start again when you're back.",
+        text: "One email a day: what you did, and what's next. Turn it off in settings any time.",
       },
     ],
-    reason: "You're getting this because reminders are on for your mentorOS account.",
-    unsubscribe: { label: "Stop reminders", url: links.page, settingsUrl: appUrl("/settings") },
+    reason: "You're getting this because the daily email is on for your mentorOS account.",
+    unsubscribe: { label: "Stop daily emails", url: links.page, settingsUrl: appUrl("/settings") },
   });
 
   return {
@@ -137,11 +202,11 @@ export function reminderEmail(to: Recipient, point: ReminderPoint, dayKey: strin
     subject: point.headline,
     html,
     text,
-    kind: "reminder",
+    kind: "daily",
     headers: {
       "List-Unsubscribe": `<${links.oneClick}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
-    idempotencyKey: `reminder/${to.userId}/${dayKey}`,
+    idempotencyKey: `daily/${to.userId}/${dayKey}`,
   };
 }

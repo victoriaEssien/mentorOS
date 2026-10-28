@@ -82,12 +82,11 @@ export async function getMissionTally(
     .where(and(eq(mission.userId, userId), eq(mission.cadence, "daily"), gte(mission.createdAt, since)))
     .groupBy(mission.status);
   const by = new Map(rows.map((row) => [row.status, Number(row.missions)]));
-  return {
-    given: [...by.values()].reduce((sum, n) => sum + n, 0),
-    handedIn: (by.get("submitted") ?? 0) + (by.get("evaluated") ?? 0),
-    missed: by.get("expired") ?? 0,
-    skipped: by.get("skipped") ?? 0,
-  };
+  const handedIn = (by.get("submitted") ?? 0) + (by.get("evaluated") ?? 0);
+  const missed = by.get("expired") ?? 0;
+  const skipped = by.get("skipped") ?? 0;
+  // A mission still running isn't missed or handed in yet, so it isn't counted either way.
+  return { given: handedIn + missed + skipped, handedIn, missed, skipped };
 }
 
 export type MissionTally = { given: number; handedIn: number; missed: number; skipped: number };

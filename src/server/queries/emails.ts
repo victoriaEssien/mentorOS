@@ -1,13 +1,15 @@
 import "server-only";
-import { and, count, desc, eq, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNotNull, max } from "drizzle-orm";
 
 import { db } from "@/db";
-import { skill, skillEvidence, userSkill } from "@/db/schema";
+import { assessment, assessmentAttempt, evaluation, skill, skillEvidence, userSkill } from "@/db/schema";
 import { durationLabel, tallyLabel, timeLeftLabel } from "@/lib/mission-labels";
 import { abilityLabel } from "@/lib/skill-labels";
 import { nextAction } from "@/lib/today";
-import type { ReminderPoint, WeeklyDigest } from "@/server/email/engagement-emails";
+import type { DailyDigest, TodayPoint, WeeklyDigest } from "@/server/email/engagement-emails";
+import { runnerConfigured } from "@/server/runner/run";
 
+import { getDailySetStatus } from "./assessments";
 import { getMissionsOverview, getMissionTally } from "./missions";
 import { getPathOverview } from "./path";
 import { getWeekPost } from "./posts";
@@ -50,10 +52,60 @@ export async function getWeeklyDigest(userId: string, since: Date): Promise<Week
 }
 
 /**
- * What a reminder should point at: the same thing Today would put first. A surprise check stays a
- * surprise, so then the reminder only says something is waiting.
+ * What the daily email says: what was handed in over the last day, how long since the last
+ * hand-in, today's next step and coding set, and the last seven days in a line.
  */
-export async function getReminderPoint(userId: string): Promise<ReminderPoint> {
+export async function getDailyDigest(userId: string, now: Date): Promise<DailyDigest> {
+  const day = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const [point, yesterday, [last], tally, [fives], path] = await Promise.all([
+    getTodayPoint(userId),
+    getRecentResults(userId, 6, new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+    db
+      .select({ at: max(evaluation.createdAt) })
+      .from(evaluation)
+      .where(eq(evaluation.userId, userId)),
+    getMissionTally(userId, weekAgo),
+    db
+      .select({ done: count() })
+      .from(assessmentAttempt)
+      .innerJoin(assessment, eq(assessment.id, assessmentAttempt.assessmentId))
+      .where(
+        and(
+          eq(assessmentAttempt.userId, userId),
+          eq(assessment.kind, "daily"),
+          isNotNull(assessmentAttempt.completedAt),
+          gte(assessmentAttempt.completedAt, weekAgo),
+        ),
+      ),
+    getPathOverview(userId),
+  ]);
+
+  // The coding set is offered once there's a path and code can run.
+  const set = runnerConfigured() && path.active ? await getDailySetStatus(userId, day) : undefined;
+  return {
+    point,
+    yesterday: yesterday.map(({ title, label, outcome }) => ({ title, label, outcome })),
+    daysSinceHandIn: last?.at
+      ? Math.floor((now.getTime() - last.at.getTime()) / (24 * 60 * 60 * 1000))
+      : null,
+    dailyFive:
+      set === undefined
+        ? null
+        : set === null
+          ? { state: "not-started" }
+          : set.completed
+            ? { state: "done" }
+            : { state: "in-progress", answered: set.answered, total: set.total },
+    week: { fivesDone: Number(fives?.done ?? 0), missions: tallyLabel(tally) },
+  };
+}
+
+/**
+ * What the daily email points at: the same thing Today would put first. A surprise check stays a
+ * surprise, so then the email only says something is waiting.
+ */
+export async function getTodayPoint(userId: string): Promise<TodayPoint> {
   const today = await getToday(userId);
   const next = nextAction({
     openDiagnostic: today.openDiagnostic,
