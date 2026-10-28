@@ -19,7 +19,7 @@ import {
   PROMPT_VERSION,
   type GenerateMissionInput,
 } from "@/server/ai/modules/mission-generator";
-import { getPrerequisiteEdges, getTrackSkills } from "@/server/queries/skills";
+import { getPrerequisiteEdges, getShelvedTrackIds, getTrackSkills } from "@/server/queries/skills";
 
 import { planDifficulty, type Outcome } from "./difficulty";
 import { blockedSkills } from "./readiness";
@@ -161,9 +161,10 @@ export async function missionInput(
     .select({ id: userTrack.trackId })
     .from(userTrack)
     .where(eq(userTrack.userId, userId));
-  const [context, trackSkills, edges, history] = await Promise.all([
+  const [context, trackSkills, shelvedSkills, edges, history] = await Promise.all([
     buildLearnerContext(userId),
     getTrackSkills(tracks.map((t) => t.id)),
+    getShelvedTrackIds().then(getTrackSkills),
     getPrerequisiteEdges(),
     current.skillId ? missionHistory(userId, current.skillId) : Promise.resolve([]),
   ]);
@@ -177,6 +178,9 @@ export async function missionInput(
     ).map((b) => b.skill),
   );
   const allowed = trackSkills.filter((s) => !blocked.has(s.slug) || s.slug === current.skillSlug);
+  // Shelved tracks (security, UI, data, electronics) come up only inside a mission that needs them.
+  const inTracks = new Set(trackSkills.map((s) => s.slug));
+  const side = shelvedSkills.filter((s) => !inTracks.has(s.slug));
 
   // A skill nothing has measured yet starts gently rather than at the middle.
   const ability = current.skillSlug ? (estimates.get(current.skillSlug)?.ability ?? 0.3) : 0.5;
@@ -189,13 +193,14 @@ export async function missionInput(
   return {
     pathItemId: current.id,
     difficulty: difficulty.difficulty,
-    idBySlug: new Map(allowed.map((s) => [s.slug, s.id])),
+    idBySlug: new Map([...allowed, ...side].map((s) => [s.slug, s.id])),
     input: {
       context,
       cadence,
       pathItem: { title: current.title, reason: current.reason, skill: current.skillSlug },
       difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
       allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
+      sideSkills: side.map((s) => ({ slug: s.slug, name: s.name })),
       recentMissions: history.map((h) => ({ title: h.title, outcome: h.outcome })),
     },
   };

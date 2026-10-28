@@ -6,7 +6,6 @@ import { z } from "zod";
 import { learnerFields, optionalText } from "@/lib/learner-fields";
 import { experienceOptions } from "@/lib/onboarding-options";
 import { completeOnboarding } from "@/server/learning/loop";
-import { getTaxonomy } from "@/server/queries/skills";
 import { requireUser } from "@/server/session";
 
 const onboardingSchema = z.object({
@@ -34,12 +33,6 @@ export async function completeOnboardingAction(
   const parsed = onboardingSchema.safeParse(answers);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Some answers are missing. Go back and check them." };
-  }
-
-  const { tracks } = await getTaxonomy();
-  const knownTracks = new Set(tracks.map((track) => track.id));
-  if (!parsed.data.trackIds.every((id) => knownTracks.has(id))) {
-    return { error: "One of those tracks no longer exists. Pick your tracks again." };
   }
 
   const { assessmentId } = await completeOnboarding(user.id, {

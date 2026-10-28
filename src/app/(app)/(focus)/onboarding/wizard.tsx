@@ -5,7 +5,7 @@ import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { startTransition, useActionState, useState } from "react";
 
 import { PipSays } from "@/components/brand/pip";
-import { ChoiceGroup, SelectionMark } from "@/components/form/choice-group";
+import { ChoiceGroup } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { CellMeter } from "@/components/system/cell-meter";
 import { WorkingScreen } from "@/components/system/working-screen";
@@ -30,7 +30,6 @@ type Track = { id: string; name: string; description: string | null };
 const STEPS = ["tracks", "goals", "background", "preferences", "review"] as const;
 
 const emptyAnswers: OnboardingAnswers = {
-  trackIds: [],
   goals: [],
   customGoal: null,
   currentRole: null,
@@ -57,7 +56,6 @@ export function OnboardingWizard({
 
   const update = (patch: Partial<OnboardingAnswers>) => setAnswers((current) => ({ ...current, ...patch }));
   const current = STEPS[step];
-  const valid = current !== "tracks" || answers.trackIds.length > 0;
   const last = step === STEPS.length - 1;
 
   function go(delta: 1 | -1) {
@@ -70,9 +68,9 @@ export function OnboardingWizard({
     startTransition(() => submit(answers));
   }
 
-  const selectedTrackNames = tracks.filter((track) => answers.trackIds.includes(track.id)).map((t) => t.name);
+  const trackNames = tracks.map((track) => track.name);
 
-  if (pending) return <BuildingScreen trackNames={selectedTrackNames} />;
+  if (pending) return <BuildingScreen trackNames={trackNames} />;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -104,18 +102,18 @@ export function OnboardingWizard({
             direction === "forward" ? "slide-in-from-right-6" : "slide-in-from-left-6",
           )}
         >
-          {current === "tracks" && <TracksStep tracks={tracks} answers={answers} update={update} />}
+          {current === "tracks" && <TracksStep tracks={tracks} />}
           {current === "goals" && <GoalsStep answers={answers} update={update} />}
           {current === "background" && <BackgroundStep answers={answers} update={update} />}
           {current === "preferences" && <PreferencesStep answers={answers} update={update} />}
-          {current === "review" && <ReviewStep answers={answers} trackNames={selectedTrackNames} />}
+          {current === "review" && <ReviewStep answers={answers} trackNames={trackNames} />}
         </div>
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-window pb-safe">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 py-3">
           {last && state.error ? <FormAlert>{state.error}</FormAlert> : null}
-          <Button size="lg" className="w-full" disabled={!valid} onClick={last ? finish : () => go(1)}>
+          <Button size="lg" className="w-full" onClick={last ? finish : () => go(1)}>
             {last ? "Start my assessment" : "Continue"}
           </Button>
         </div>
@@ -138,7 +136,8 @@ function StepTitle({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-function TracksStep({ tracks, answers, update }: StepProps & { tracks: Track[] }) {
+/** What everyone works on. Nothing to pick: the tracks are set, aimed at the interview bar. */
+function TracksStep({ tracks }: { tracks: Track[] }) {
   return (
     <>
       <PipSays className="mb-6">
@@ -146,40 +145,19 @@ function TracksStep({ tracks, answers, update }: StepProps & { tracks: Track[] }
         really do, and we start from there.
       </PipSays>
       <StepTitle
-        title="What do you want to get better at?"
-        detail="Pick one or more. Missions can combine them later."
+        title="What we'll work on"
+        detail="Every mission, check and question comes from these three, pitched at the bar for engineering interviews at the top companies."
       />
-      <ToggleGroupPrimitive.Root
-        type="multiple"
-        value={answers.trackIds}
-        onValueChange={(trackIds) => update({ trackIds })}
-        aria-label="Tracks"
-        className="flex flex-col gap-2"
-      >
-        {tracks.map((track) => {
-          const selected = answers.trackIds.includes(track.id);
-          return (
-            <ToggleGroupPrimitive.Item
-              key={track.id}
-              value={track.id}
-              className={cn(
-                "flex pressable items-center gap-4 rounded-lg border bg-window px-4 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                selected ? "border-foreground" : "border-rule",
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-headline">{track.name}</span>
-                {track.description ? (
-                  <span className="mt-0.5 block text-footnote text-muted-foreground">
-                    {track.description}
-                  </span>
-                ) : null}
-              </span>
-              <SelectionMark selected={selected} />
-            </ToggleGroupPrimitive.Item>
-          );
-        })}
-      </ToggleGroupPrimitive.Root>
+      <ul className="divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-window">
+        {tracks.map((track) => (
+          <li key={track.id} className="px-4 py-3.5">
+            <p className="text-headline">{track.name}</p>
+            {track.description ? (
+              <p className="mt-0.5 text-footnote text-muted-foreground">{track.description}</p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
     </>
   );
 }
@@ -255,7 +233,7 @@ function BackgroundStep({ answers, update }: StepProps) {
         </div>
 
         <ChoiceGroup
-          label="Experience in your chosen tracks"
+          label="Experience as a developer"
           value={answers.yearsExperience === null ? "" : String(answers.yearsExperience)}
           onChange={(value) => update({ yearsExperience: Number(value) })}
           options={experienceOptions.map((option) => ({ value: String(option.value), label: option.label }))}

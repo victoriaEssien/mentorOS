@@ -15,7 +15,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * (behaviour 12). Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v2";
+export const PROMPT_VERSION = "v3";
 
 const SYSTEM_PROMPT = `
 You write missions for mentorOS, an AI-managed technical apprenticeship. A mission is one concrete
@@ -49,7 +49,10 @@ Write one mission:
   Set url to null if you aren't sure of the exact address.
 - reason: one or two sentences, as "you": why this mission now. Use the path item's reason and the
   evidence, and say how the difficulty was chosen.
-- skills: slugs from the allowed list only; the first is the path item's skill.
+- skills: slugs from the allowed list only; the first is the path item's skill. A side skill (from
+  a track they aren't studying, such as security or UI) may be listed only when the mission
+  genuinely exercises it, like hashing passwords in an auth mission. Never build a mission around
+  one.
 - Don't repeat a recent mission. Follow the tone guidance for wording only. No em dashes.
 `.trim();
 
@@ -60,6 +63,8 @@ export type GenerateMissionInput = {
   difficulty: { level: number; mode: "advance" | "consolidate" | "remediate"; reason: string };
   /** Skills the mission may list (slug: name). */
   allowedSkills: { slug: string; name: string }[];
+  /** Skills from shelved tracks, listed only when the mission genuinely needs one (slug: name). */
+  sideSkills: { slug: string; name: string }[];
   /** Recent missions on the same skill, so it doesn't repeat itself. */
   recentMissions: { title: string; outcome: string | null }[];
   effort?: Effort;
@@ -81,6 +86,13 @@ export async function generateMission(
     "",
     "SKILLS YOU MAY LIST (slug: name)",
     ...input.allowedSkills.map((skill) => `- ${skill.slug}: ${skill.name}`),
+    ...(input.sideSkills.length > 0
+      ? [
+          "",
+          "SIDE SKILLS (only when the mission genuinely needs one)",
+          ...input.sideSkills.map((skill) => `- ${skill.slug}: ${skill.name}`),
+        ]
+      : []),
     ...(input.recentMissions.length > 0
       ? [
           "",
@@ -109,7 +121,7 @@ export async function generateMission(
   const mission = sanitizeMission(output, {
     cadence: input.cadence,
     focusSkill: pathItem.skill,
-    allowedSkills: new Set(input.allowedSkills.map((skill) => skill.slug)),
+    allowedSkills: new Set([...input.allowedSkills, ...input.sideSkills].map((skill) => skill.slug)),
   });
   return { mission, meta };
 }

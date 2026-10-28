@@ -1,5 +1,6 @@
 /**
- * The skill taxonomy: six MVP tracks (PRD §4), each a tree of groups and assessable skills (PRD §11).
+ * The skill taxonomy: three active tracks every learner learns (Software Engineering, DSA, CS
+ * Foundations) and four shelved ones, each a tree of groups and assessable skills.
  *
  * - Groups (no `parent`) organise a track's tree; leaf skills are what assessments and missions
  *   measure, so every leaf has a description the AI modules can read.
@@ -8,7 +9,16 @@
  * - The seed upserts by slug, so this file is the source of truth for names and placements.
  */
 
-export type SeedTrack = { slug: string; name: string; description: string };
+export type SeedTrack = {
+  slug: string;
+  name: string;
+  description: string;
+  /**
+   * Shelved tracks are kept, not deleted: nobody learns them as a track, but missions in the active
+   * tracks may draw on their skills when the work needs them.
+   */
+  shelved?: boolean;
+};
 
 export type SeedSkill = {
   slug: string;
@@ -21,36 +31,54 @@ export type SeedSkill = {
   alsoIn?: { track: string; parent: string }[];
 };
 
+/**
+ * Every learner learns the active tracks, in this order; nobody picks. The bar is the technical
+ * interview at the top companies, so DSA is a track of its own.
+ */
 export const tracks: SeedTrack[] = [
   {
     slug: "software-engineering",
     name: "Software Engineering",
-    description: "Programming, web, databases and systems.",
+    description: "Programming, web, databases and systems, built the way strong teams build them.",
   },
-  { slug: "cybersecurity", name: "Cybersecurity", description: "Attacks, defences and secure design." },
+  {
+    slug: "dsa",
+    name: "Data Structures & Algorithms",
+    description: "The patterns coding interviews test, from arrays and hashing to dynamic programming.",
+  },
+  {
+    slug: "cs-foundations",
+    name: "Computer Science Foundations",
+    description: "Computer systems, memory, networks and theory.",
+  },
+  {
+    slug: "cybersecurity",
+    name: "Cybersecurity",
+    description: "Attacks, defences and secure design.",
+    shelved: true,
+  },
   {
     slug: "data-analysis",
     name: "Data Analysis & Analytics",
     description: "SQL, analysis and communicating insight.",
+    shelved: true,
   },
   {
     slug: "electronics",
     name: "Electronics & Physical Engineering",
     description: "Circuits, microcontrollers, sensors and physical builds.",
+    shelved: true,
   },
   {
     slug: "ui-ux-product",
     name: "UI/UX & Product",
     description: "Interface design, usability and product thinking.",
-  },
-  {
-    slug: "cs-foundations",
-    name: "Computer Science Foundations",
-    description: "Algorithms, data structures, networking and operating systems.",
+    shelved: true,
   },
 ];
 
 const se = "software-engineering";
+const dsa = "dsa";
 const sec = "cybersecurity";
 const data = "data-analysis";
 const elec = "electronics";
@@ -633,40 +661,171 @@ export const skills: SeedSkill[] = [
     description: "Choosing what to build next with evidence, and saying no to the rest.",
   },
 
-  // Computer Science Foundations
-  { slug: "dsa", name: "Data Structures & Algorithms", track: cs },
-  {
-    slug: "data-structures",
-    name: "Data Structures",
-    track: cs,
-    parent: "dsa",
-    description: "Arrays, linked lists, hash maps, trees, heaps and graphs, and when to use each.",
-    alsoIn: [{ track: se, parent: "programming" }],
-  },
-  {
-    slug: "algorithms",
-    name: "Algorithms",
-    track: cs,
-    parent: "dsa",
-    description: "Searching, sorting, graph traversal, dynamic programming and greedy approaches.",
-    alsoIn: [{ track: se, parent: "programming" }],
-  },
+  // Data Structures & Algorithms: the patterns coding interviews are built from.
+  { slug: "dsa-foundations", name: "Foundations", track: dsa },
   {
     slug: "complexity",
     name: "Complexity Analysis",
-    track: cs,
-    parent: "dsa",
-    description: "Big-O for time and space, and reasoning about what will be slow at scale.",
+    track: dsa,
+    parent: "dsa-foundations",
+    description: "Big-O for time and space, and choosing the approach the input size allows.",
+    alsoIn: [{ track: cs, parent: "cs-theory" }],
   },
   {
     slug: "recursion",
     name: "Recursion",
-    track: cs,
-    parent: "dsa",
+    track: dsa,
+    parent: "dsa-foundations",
     description: "Thinking recursively: base cases, the call stack and divide and conquer.",
   },
+  {
+    slug: "interview-technique",
+    name: "Coding Interview Technique",
+    track: dsa,
+    parent: "dsa-foundations",
+    description:
+      "Clarifying the problem, talking through approaches and trade-offs, and testing your own code under time.",
+  },
 
+  { slug: "linear-structures", name: "Arrays & Lists", track: dsa },
+  {
+    slug: "arrays-hashing",
+    name: "Arrays & Hashing",
+    track: dsa,
+    parent: "linear-structures",
+    description: "Arrays, strings and hash maps: counting, grouping, prefix sums and constant-time lookups.",
+  },
+  {
+    slug: "two-pointers",
+    name: "Two Pointers",
+    track: dsa,
+    parent: "linear-structures",
+    description: "Moving two indices through a sequence: pairs, partitions and in-place rewrites.",
+  },
+  {
+    slug: "sliding-window",
+    name: "Sliding Window",
+    track: dsa,
+    parent: "linear-structures",
+    description: "A running window over a sequence for longest, shortest and counting questions.",
+  },
+  {
+    slug: "stacks-queues",
+    name: "Stacks & Queues",
+    track: dsa,
+    parent: "linear-structures",
+    description: "LIFO and FIFO, monotonic stacks, and matching and evaluation problems.",
+  },
+  {
+    slug: "linked-lists",
+    name: "Linked Lists",
+    track: dsa,
+    parent: "linear-structures",
+    description:
+      "Pointer manipulation: reversing, merging, and fast and slow pointers for cycles and middles.",
+  },
+
+  { slug: "search-sort", name: "Searching & Sorting", track: dsa },
+  {
+    slug: "binary-search",
+    name: "Binary Search",
+    track: dsa,
+    parent: "search-sort",
+    description: "Halving the search space, on sorted input and on the answer itself.",
+  },
+  {
+    slug: "sorting",
+    name: "Sorting",
+    track: dsa,
+    parent: "search-sort",
+    description:
+      "How merge sort, quicksort and counting sort work, what they cost, and sorting as a first step.",
+  },
+
+  { slug: "trees-graphs", name: "Trees & Graphs", track: dsa },
+  {
+    slug: "trees",
+    name: "Trees",
+    track: dsa,
+    parent: "trees-graphs",
+    description: "Binary trees and binary search trees: traversals, depth, paths and recursion over a tree.",
+  },
+  {
+    slug: "tries",
+    name: "Tries",
+    track: dsa,
+    parent: "trees-graphs",
+    description: "Prefix trees for word search, autocomplete and prefix counting.",
+  },
+  {
+    slug: "heaps",
+    name: "Heaps & Priority Queues",
+    track: dsa,
+    parent: "trees-graphs",
+    description: "Top k, merging sorted streams, running medians and scheduling with a heap.",
+  },
+  {
+    slug: "graphs",
+    name: "Graphs",
+    track: dsa,
+    parent: "trees-graphs",
+    description: "Adjacency lists and grids, BFS and DFS, connected components and cycle detection.",
+  },
+  {
+    slug: "advanced-graphs",
+    name: "Advanced Graphs",
+    track: dsa,
+    parent: "trees-graphs",
+    description: "Shortest paths, topological sort, union-find and minimum spanning trees.",
+  },
+
+  { slug: "techniques", name: "Techniques", track: dsa },
+  {
+    slug: "backtracking",
+    name: "Backtracking",
+    track: dsa,
+    parent: "techniques",
+    description:
+      "Exploring choices with pruning: subsets, permutations, combinations and constraint puzzles.",
+  },
+  {
+    slug: "greedy",
+    name: "Greedy",
+    track: dsa,
+    parent: "techniques",
+    description: "Taking the locally best choice, and knowing when that is provably right.",
+  },
+  {
+    slug: "intervals",
+    name: "Intervals",
+    track: dsa,
+    parent: "techniques",
+    description: "Merging, inserting and scheduling ranges, and counting overlaps.",
+  },
+  {
+    slug: "dynamic-programming",
+    name: "Dynamic Programming",
+    track: dsa,
+    parent: "techniques",
+    description: "Overlapping subproblems: designing the state, memoisation and bottom-up tables.",
+  },
+  {
+    slug: "bit-manipulation",
+    name: "Bit Manipulation",
+    track: dsa,
+    parent: "techniques",
+    description: "Masks, shifts and XOR tricks for sets, parity and single-number problems.",
+  },
+
+  // Computer Science Foundations
   { slug: "computer-systems", name: "Computer Systems", track: cs },
+  {
+    slug: "memory-management",
+    name: "Memory Management",
+    track: cs,
+    parent: "computer-systems",
+    description: "Stack and heap, pointers and references, ownership, and how garbage collection works.",
+  },
   {
     slug: "computer-architecture",
     name: "Computer Architecture",
@@ -722,6 +881,20 @@ export const skills: SeedSkill[] = [
     parent: "cs-theory",
     description: "Automata, what can and cannot be computed, and why some problems are hard.",
   },
+  {
+    slug: "probability",
+    name: "Probability",
+    track: cs,
+    parent: "cs-theory",
+    description: "Counting, expected value, conditional probability and randomised algorithms.",
+  },
+  {
+    slug: "compilers",
+    name: "Compilers & Interpreters",
+    track: cs,
+    parent: "cs-theory",
+    description: "How source becomes something that runs: parsing, syntax trees, bytecode and optimisation.",
+  },
 ];
 
 /** [skill, requires] pairs: the readiness gate checks these before the planner moves on. */
@@ -775,9 +948,26 @@ export const prerequisites: [string, string][] = [
   ["design-systems", "typography"],
   ["design-systems", "layout-hierarchy"],
 
-  ["algorithms", "data-structures"],
-  ["complexity", "algorithms"],
+  ["two-pointers", "arrays-hashing"],
+  ["sliding-window", "two-pointers"],
+  ["binary-search", "arrays-hashing"],
+  ["sorting", "arrays-hashing"],
+  ["trees", "recursion"],
+  ["tries", "trees"],
+  ["heaps", "trees"],
+  ["graphs", "trees"],
+  ["graphs", "stacks-queues"],
+  ["advanced-graphs", "graphs"],
+  ["advanced-graphs", "heaps"],
+  ["backtracking", "recursion"],
+  ["dynamic-programming", "recursion"],
+  ["intervals", "sorting"],
+  ["greedy", "sorting"],
+
   ["concurrency", "operating-systems"],
+  ["memory-management", "computer-architecture"],
   ["dns", "networking"],
   ["computability", "discrete-math"],
+  ["probability", "discrete-math"],
+  ["compilers", "discrete-math"],
 ];

@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { signOutAction } from "@/app/(auth)/actions";
 import { SubmitButton } from "@/components/form/submit-button";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
-import { getEmailSettings, getLearnerTrackIds, hasPassword } from "@/server/queries/learner";
-import { getTaxonomy } from "@/server/queries/skills";
+import { getEmailSettings, hasPassword } from "@/server/queries/learner";
 import { requireLearner } from "@/server/session";
 
 import {
@@ -15,26 +14,17 @@ import {
   NameSetting,
   PasswordSetting,
   ToneSetting,
-  TracksSetting,
   WeeklyTimeSetting,
 } from "./settings-sheets";
 
 export const metadata: Metadata = { title: "Settings" };
 
-// Changing tracks replans the path after the response, with a model call.
-export const maxDuration = 60;
-
 const GROUP = "divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-window";
 
-/** Settings (PRD §8): everything onboarding asked, changeable one row at a time. */
+/** Settings (PRD §8): what onboarding asked, changeable one row at a time. Tracks are fixed. */
 export default async function SettingsPage() {
   const { user, profile } = await requireLearner();
-  const [{ tracks }, trackIds, withPassword, emails] = await Promise.all([
-    getTaxonomy(),
-    getLearnerTrackIds(user.id),
-    hasPassword(user.id),
-    getEmailSettings(user.id),
-  ]);
+  const [withPassword, emails] = await Promise.all([hasPassword(user.id), getEmailSettings(user.id)]);
 
   return (
     <Screen>
@@ -54,10 +44,6 @@ export default async function SettingsPage() {
 
       <ScreenSection title="Learning">
         <div className={GROUP}>
-          <TracksSetting
-            tracks={tracks.map(({ id, name, description }) => ({ id, name, description }))}
-            selected={trackIds}
-          />
           <GoalsSetting goals={profile.goals} customGoal={profile.customGoal} />
           <WeeklyTimeSetting hours={profile.weeklyLearningHours} />
           <LearningStyleSetting style={profile.learningStyle} />

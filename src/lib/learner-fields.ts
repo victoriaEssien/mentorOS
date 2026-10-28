@@ -17,7 +17,6 @@ export const optionalText = (max: number) =>
     .nullable();
 
 export const learnerFields = {
-  trackIds: z.array(z.string()).min(1, { error: "Pick at least one track." }).max(6),
   goals: z.array(z.enum(goalOptions)).max(goalOptions.length),
   customGoal: optionalText(200),
   weeklyLearningHours: z

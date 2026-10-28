@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   index,
   integer,
   pgTable,
@@ -20,6 +21,11 @@ export const track = pgTable("track", {
   name: text().notNull(),
   description: text(),
   sortOrder: integer().default(0).notNull(),
+  /**
+   * Kept but not learned as a track: every learner learns the tracks that aren't shelved, and
+   * missions may still draw on a shelved track's skills when the work needs them.
+   */
+  shelved: boolean().default(false).notNull(),
   createdAt: createdAt(),
 });
 

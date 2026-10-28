@@ -25,12 +25,15 @@ const loop = [
 ];
 
 const tracks = [
-  { name: "Software Engineering", detail: "Programming, web, databases and systems." },
-  { name: "Cybersecurity", detail: "Attacks, defences and secure design." },
-  { name: "Data Analysis & Analytics", detail: "SQL, analysis and communicating insight." },
-  { name: "Electronics & Physical Engineering", detail: "Circuits, microcontrollers, sensors and builds." },
-  { name: "UI/UX & Product", detail: "Interface design, usability and product thinking." },
-  { name: "Computer Science Foundations", detail: "Algorithms, data structures, networking and systems." },
+  {
+    name: "Software Engineering",
+    detail: "Programming, web, databases and systems, built the way strong teams build them.",
+  },
+  {
+    name: "Data Structures & Algorithms",
+    detail: "The patterns coding interviews test, from arrays and hashing to dynamic programming.",
+  },
+  { name: "Computer Science Foundations", detail: "Computer systems, memory, networks and theory." },
 ];
 
 const exampleJournal: JournalEntry[] = [
@@ -333,13 +336,13 @@ function Tracks() {
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-12 lg:py-20">
       <div className="lg:col-span-4">
-        <h2 className={SECTION_TITLE}>Six tracks, one profile.</h2>
+        <h2 className={SECTION_TITLE}>Three tracks, one bar.</h2>
         <p className="mt-4 text-callout text-muted-foreground">
-          Pick more than one. Missions can cross them: a secure sensor that reports to an API counts toward
-          electronics, backend and security at once.
+          Everyone works toward the bar top engineering interviews set. Security, data and interface design
+          come up inside a mission when the work needs them, like hashing passwords in a login you build.
         </p>
       </div>
-      <ul className="grid gap-x-10 sm:grid-cols-2 lg:col-span-8">
+      <ul className="grid gap-x-8 sm:grid-cols-3 lg:col-span-8">
         {tracks.map((track) => (
           <li key={track.name} className="border-t border-rule py-4">
             <p className="text-headline">{track.name}</p>
