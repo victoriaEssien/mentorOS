@@ -7,12 +7,20 @@ const base: GeneratedMission = {
   type: "build",
   title: "  Guard a stock update  ",
   objective: "Show an UPDATE that can't oversell.",
+  scenario: "  A flash sale oversold 40 units last week.  ",
+  technology: "PostgreSQL",
   reason: "Your answer showed the gap.",
   estimatedMinutes: 45,
   skills: ["SQL", "transactions", "kubernetes"],
   requiredKnowledge: ["UPDATE syntax", " "],
   instructions: "1. Create a table.\n2. Write the update.",
   deliverable: "A gist with the SQL and a short explanation.",
+  acceptanceCriteria: [
+    "Stock never goes below zero",
+    "  ",
+    " Two concurrent buyers can't both win the last unit ",
+  ],
+  stretchGoal: "  ",
   evaluationCriteria: [
     { key: "Correctness", label: "Correctness", description: "Never oversells.", maxScore: 25 },
     { key: "correctness", label: "Explanation", description: "Says why it works.", maxScore: 10 },
@@ -75,5 +83,15 @@ describe("sanitizeMission", () => {
       },
       { title: "Sketchy", url: null, kind: "docs", note: null },
     ]);
+  });
+
+  it("trims the scenario and done-when list, and treats a blank stretch goal as none", () => {
+    const mission = sanitizeMission(base, { cadence: "daily", focusSkill: "sql", allowedSkills: allowed });
+    expect(mission.scenario).toBe("A flash sale oversold 40 units last week.");
+    expect(mission.acceptanceCriteria).toEqual([
+      "Stock never goes below zero",
+      "Two concurrent buyers can't both win the last unit",
+    ]);
+    expect(mission.stretchGoal).toBeNull();
   });
 });

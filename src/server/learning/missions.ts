@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { isUniqueViolation } from "@/db/errors";
@@ -22,6 +22,7 @@ import {
 import { getPrerequisiteEdges, getShelvedTrackIds, getTrackSkills } from "@/server/queries/skills";
 
 import { planDifficulty, type Outcome } from "./difficulty";
+import { planStack, stackLabel } from "./mission-stack";
 import { blockedSkills } from "./readiness";
 
 export type Cadence = "daily" | "weekly";
@@ -101,10 +102,14 @@ export async function assignMission(
         cadence,
         title: generated.title,
         objective: generated.objective,
+        scenario: generated.scenario,
         reason: generated.reason,
         instructions: generated.instructions,
         requiredKnowledge: generated.requiredKnowledge,
         deliverable: generated.deliverable,
+        acceptanceCriteria: generated.acceptanceCriteria,
+        stretchGoal: generated.stretchGoal,
+        stack: stackLabel(input.stack, generated.technology),
         evaluationCriteria: generated.evaluationCriteria,
         resources: generated.resources.map(({ url, note, ...resource }) => ({
           ...resource,
@@ -184,13 +189,22 @@ export async function missionInput(
     .select({ id: userTrack.trackId })
     .from(userTrack)
     .where(eq(userTrack.userId, userId));
-  const [context, trackSkills, shelvedSkills, edges, history] = await Promise.all([
+  const [context, trackSkills, shelvedSkills, edges, history, [given]] = await Promise.all([
     buildLearnerContext(userId),
     getTrackSkills(tracks.map((t) => t.id)),
     getShelvedTrackIds().then(getTrackSkills),
     getPrerequisiteEdges(),
     current.skillId ? missionHistory(userId, current.skillId) : Promise.resolve([]),
+    db
+      .select({ missions: count() })
+      .from(mission)
+      .where(and(eq(mission.userId, userId), eq(mission.cadence, cadence))),
   ]);
+  const stack = planStack({
+    cadence,
+    given: Number(given?.missions ?? 0),
+    technologiesUsed: context.background.technologiesUsed,
+  });
 
   const estimates = new Map(context.skills.map((s) => [s.slug, s]));
   const blocked = new Set(
@@ -224,6 +238,7 @@ export async function missionInput(
       difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
       allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
       sideSkills: side.map((s) => ({ slug: s.slug, name: s.name })),
+      stack,
       recentMissions: history.map((h) => ({
         title: h.title,
         outcome: h.outcome ?? (h.expired ? "ran out of time, not handed in" : null),

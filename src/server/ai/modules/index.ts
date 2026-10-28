@@ -9,5 +9,6 @@ export * as learningPlanner from "./learning-planner";
 export * as missionGenerator from "./mission-generator";
 export * as submissionEvaluator from "./submission-evaluator";
 export * as skillProfileUpdater from "./skill-profile-updater";
+export * as studyGuideWriter from "./study-guide-writer";
 export * as tutor from "./tutor";
 export * as mentor from "./mentor";

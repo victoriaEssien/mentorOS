@@ -46,9 +46,13 @@ export function sanitizeMission(
     ...mission,
     title: mission.title.trim(),
     objective: mission.objective.trim(),
+    scenario: mission.scenario.trim(),
+    technology: mission.technology.trim(),
     reason: mission.reason.trim(),
     instructions: mission.instructions.trim(),
     deliverable: mission.deliverable.trim(),
+    acceptanceCriteria: mission.acceptanceCriteria.map((item) => item.trim()).filter(Boolean),
+    stretchGoal: mission.stretchGoal?.trim() || null,
     estimatedMinutes: Math.min(max, Math.max(min, Math.round(mission.estimatedMinutes))),
     skills,
     requiredKnowledge: mission.requiredKnowledge.map((item) => item.trim()).filter(Boolean),
@@ -72,7 +76,8 @@ function slugify(value: string): string {
     .slice(0, 40);
 }
 
-function safeUrl(value: string | null): string | null {
+/** Only http(s) links reach the page. */
+export function safeUrl(value: string | null): string | null {
   if (!value) return null;
   try {
     const url = new URL(value.trim());

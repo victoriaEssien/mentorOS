@@ -13,6 +13,7 @@ import { getMentorThread, hintOnQuestion, replyInThread } from "./mentor-chat";
 import { assignMission, expireOverdueMissions, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 import { updateLearnerSettings, type LearnerSettings } from "./settings";
+import { ensureStudyGuide } from "./study-guide";
 import { submitWork, type WorkInput } from "./submissions";
 
 /**
@@ -107,6 +108,14 @@ export async function refreshLearningPath(
   learnerRequest: string | null = null,
 ): Promise<{ pathId: string }> {
   return planPath(userId, learnerRequest);
+}
+
+/**
+ * How to study a step of the learner's path (Part D), written the first time it's asked for: one
+ * model call, about twenty seconds. Null while another request is writing it.
+ */
+export async function studyGuide(userId: string, pathItemId: string) {
+  return ensureStudyGuide(userId, pathItemId);
 }
 
 /**

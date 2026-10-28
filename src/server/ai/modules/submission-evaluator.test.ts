@@ -12,6 +12,7 @@ const mission: EvaluatedMission = {
   objective: "Stop overselling.",
   deliverable: "A gist.",
   instructions: "1. Do it.",
+  acceptanceCriteria: [],
   criteria: [
     { key: "correctness", label: "Correctness", description: "Never oversells.", maxScore: 10 },
     { key: "reasoning", label: "Reasoning", description: "Explains why.", maxScore: 10 },

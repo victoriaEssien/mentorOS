@@ -15,7 +15,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * (behaviour 12). Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v3";
+export const PROMPT_VERSION = "v4";
 
 const SYSTEM_PROMPT = `
 You write missions for mentorOS, an AI-managed technical apprenticeship. A mission is one concrete
@@ -36,9 +36,18 @@ Write one mission:
 - They work on a laptop and hand in a link (repository, gist, deployed URL) or a written
   explanation, so the deliverable must be checkable from that. Say exactly what to hand in, and
   always ask for a short explanation of their reasoning alongside it.
+- Detailed, never spoon-fed. scenario sets a realistic situation in two or three sentences: who
+  needs this, what's missing or broken, and the constraint that makes it interesting.
+  acceptanceCriteria are 3 to 7 checkable statements of done (behaviour, the edge cases handled, a
+  performance or reliability target, the tests that must exist); the evaluation checks each one.
+  stretchGoal is one harder extension, or null.
 - instructions: numbered steps, one per line, each one or two sentences, specific enough to start
-  without asking anything. Name the simplest setup (language, tools) that suits the track and their
-  background. Guide; don't do the work for them.
+  without asking anything. Steps say what to achieve, in what order, and which decisions they have
+  to make; never the code to write. Name versions and tools concretely.
+- The stack is decided for you. "Their stack" means build it with those technologies at production
+  depth: real failure modes, edge cases, performance and tests, the parts tutorials skip. "Explore"
+  means build it with the one candidate that best fits the skill, and say in the reason why that
+  tool suits this job. technology names what it's built with.
 - requiredKnowledge: what they need to know first, as short phrases.
 - evaluationCriteria: 3 to 5 criteria, each out of 10, with what full marks looks like. One of them
   scores the explanation of their reasoning.
@@ -63,6 +72,8 @@ export type GenerateMissionInput = {
   difficulty: { level: number; mode: "advance" | "consolidate" | "remediate"; reason: string };
   /** Skills the mission may list (slug: name). */
   allowedSkills: { slug: string; name: string }[];
+  /** Their own stack to go deeper in, or new tools to explore (decided in mission-stack.ts). */
+  stack: { mode: "home"; technologies: string[] } | { mode: "explore"; candidates: string[] };
   /** Skills from shelved tracks, listed only when the mission genuinely needs one (slug: name). */
   sideSkills: { slug: string; name: string }[];
   /** Recent missions on the same skill, so it doesn't repeat itself. */
@@ -83,6 +94,9 @@ export async function generateMission(
     `Cadence: ${input.cadence}.`,
     `Path item: "${pathItem.title}"${pathItem.skill ? ` (skill: ${pathItem.skill})` : ""}. Why it's on the path: ${pathItem.reason}`,
     `Difficulty: ${difficulty.level} of 5, mode ${difficulty.mode}. ${difficulty.reason}`,
+    input.stack.mode === "home"
+      ? `Stack: their stack, go deeper in it. Their technologies: ${input.stack.technologies.join(", ")}.`
+      : `Stack: explore. Pick the one candidate that best fits the skill: ${input.stack.candidates.join("; ")}.`,
     "",
     "SKILLS YOU MAY LIST (slug: name)",
     ...input.allowedSkills.map((skill) => `- ${skill.slug}: ${skill.name}`),
