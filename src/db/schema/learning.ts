@@ -156,6 +156,9 @@ export type SubmissionArtifact = {
   label?: string;
 };
 export type Reflection = {
+  /** Asked on every hand-in since the weekly post: what they learned, and what they got wrong. */
+  learned?: string;
+  gotWrong?: string;
   difficult?: string;
   understoodBetter?: string;
   wouldChange?: string;

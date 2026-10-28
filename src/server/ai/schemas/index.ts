@@ -5,3 +5,4 @@ export * from "./learning-plan";
 export * from "./mission";
 export * from "./study-guide";
 export * from "./submission-evaluation";
+export * from "./weekly-post";

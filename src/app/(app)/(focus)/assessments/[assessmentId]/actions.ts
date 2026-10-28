@@ -14,6 +14,7 @@ import {
 import { NotRunnableError, TooManyRunsError } from "@/server/learning/daily";
 import {
   assignNextMission,
+  noteDailySet,
   refreshLearningPath,
   runDailyCode,
   submitAssessmentAttempt,
@@ -143,4 +144,29 @@ export async function runCodeAction(assessmentId: string, itemId: string, code: 
       return { ok: false, error: "This question isn't answered with code." };
     throw error;
   }
+}
+
+export type NoteState = { saved?: boolean; error?: string };
+
+const noteText = (what: string) =>
+  z
+    .string()
+    .trim()
+    .min(10, `Say ${what}, in a sentence or two.`)
+    .max(2000, "Keep it under 2,000 characters.");
+
+/** Saves what they learned and got wrong in a daily set. Their words, for the weekly post. */
+export async function saveDailyNoteAction(
+  assessmentId: string,
+  _previous: NoteState,
+  formData: FormData,
+): Promise<NoteState> {
+  const user = await requireUser();
+  const learned = noteText("what you learned").safeParse(formData.get("learned") ?? "");
+  const gotWrong = noteText("what you got wrong").safeParse(formData.get("gotWrong") ?? "");
+  if (!uuid.safeParse(assessmentId).success) return { error: "This set no longer exists." };
+  if (!learned.success) return { error: learned.error.issues[0]?.message };
+  if (!gotWrong.success) return { error: gotWrong.error.issues[0]?.message };
+  const saved = await noteDailySet(user.id, assessmentId, learned.data, gotWrong.data);
+  return saved ? { saved: true } : { error: "This set no longer exists." };
 }

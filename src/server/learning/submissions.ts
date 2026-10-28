@@ -43,6 +43,8 @@ export class MissionExpiredError extends Error {
 }
 
 export const REFLECTION_QUESTIONS: Record<keyof Reflection, string> = {
+  learned: "What did you learn?",
+  gotWrong: "What did you get wrong, or nearly?",
   difficult: "What was difficult?",
   understoodBetter: "What did you understand better?",
   wouldChange: "What would you do differently?",

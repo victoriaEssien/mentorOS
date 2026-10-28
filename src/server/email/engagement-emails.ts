@@ -32,6 +32,8 @@ export type WeeklyDigest = {
   focus: string | null;
   /** This week's challenge, if one is in play. */
   challenge: string | null;
+  /** Last week's post, drafted for LinkedIn and X, if there was anything to post about. */
+  post: { linkedin: string; x: string } | null;
 };
 
 export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey: string): OutgoingEmail {
@@ -66,6 +68,20 @@ export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey
     digest.challenge ? `Your weekly challenge: ${digest.challenge}.` : null,
   ].filter((line): line is string => Boolean(line));
   if (next.length > 0) blocks.push({ kind: "text", text: next.join(" ") });
+  if (digest.post) {
+    // Each paragraph its own block, so the post keeps its shape in every inbox.
+    const paragraphs = (text: string) =>
+      text
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    blocks.push(
+      { kind: "text", text: "Your post for the week, ready to edit and share. For LinkedIn:" },
+      ...paragraphs(digest.post.linkedin).map((text) => ({ kind: "muted" as const, text })),
+      { kind: "text", text: "For X:" },
+      { kind: "muted", text: digest.post.x },
+    );
+  }
 
   const { html, text } = renderEmail({
     preheader:

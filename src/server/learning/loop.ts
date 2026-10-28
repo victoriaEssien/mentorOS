@@ -14,6 +14,7 @@ import { assignMission, expireOverdueMissions, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 import { updateLearnerSettings, type LearnerSettings } from "./settings";
 import { ensureStudyGuide } from "./study-guide";
+import { draftPost, saveDailyNote } from "./weekly-post";
 import { submitWork, type WorkInput } from "./submissions";
 
 /**
@@ -116,6 +117,19 @@ export async function refreshLearningPath(
  */
 export async function studyGuide(userId: string, pathItemId: string) {
   return ensureStudyGuide(userId, pathItemId);
+}
+
+/**
+ * Drafts the learner's LinkedIn and X posts for a week (Part E) from what that week's evidence
+ * shows, replacing any earlier draft. One model call; a few drafts a week at most.
+ */
+export async function weeklyPostDraft(userId: string, weekStart: string) {
+  return draftPost(userId, weekStart);
+}
+
+/** What the learner learned and got wrong in a daily set, in their words. Never evidence. */
+export async function noteDailySet(userId: string, assessmentId: string, learned: string, gotWrong: string) {
+  return saveDailyNote(userId, assessmentId, learned, gotWrong);
 }
 
 /**

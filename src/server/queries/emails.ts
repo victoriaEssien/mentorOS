@@ -10,11 +10,12 @@ import type { ReminderPoint, WeeklyDigest } from "@/server/email/engagement-emai
 
 import { getMissionsOverview, getMissionTally } from "./missions";
 import { getPathOverview } from "./path";
+import { getWeekPost } from "./posts";
 import { getRecentResults, getToday } from "./today";
 
 /** What a learner's last week showed, for the Monday email. */
 export async function getWeeklyDigest(userId: string, since: Date): Promise<WeeklyDigest> {
-  const [results, skills, path, missions, tally] = await Promise.all([
+  const [results, skills, path, missions, tally, week] = await Promise.all([
     getRecentResults(userId, 6, since),
     db
       .select({ name: skill.name, ability: userSkill.ability, pieces: count() })
@@ -31,6 +32,7 @@ export async function getWeeklyDigest(userId: string, since: Date): Promise<Week
     getPathOverview(userId),
     getMissionsOverview(userId),
     getMissionTally(userId, since),
+    getWeekPost(userId, since.toISOString().slice(0, 10)),
   ]);
 
   return {
@@ -43,6 +45,7 @@ export async function getWeeklyDigest(userId: string, since: Date): Promise<Week
     missions: tallyLabel(tally),
     focus: path.current?.title ?? null,
     challenge: missions.weekly?.title ?? null,
+    post: week.draft ? { linkedin: week.draft.linkedin, x: week.draft.x } : null,
   };
 }
 
