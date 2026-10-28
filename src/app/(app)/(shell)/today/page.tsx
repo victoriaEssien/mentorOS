@@ -14,18 +14,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
 import { greetingFor, knownTimeZone, shortDate, TIME_ZONE_COOKIE } from "@/lib/local-time";
-import { durationLabel, missionTypeLabel } from "@/lib/mission-labels";
+import { durationLabel, missionTypeLabel, timeLeftLabel } from "@/lib/mission-labels";
 import { OUTCOME_BADGE } from "@/lib/outcomes";
 import { abilityLabel } from "@/lib/skill-labels";
 import { nextAction, type NextAction } from "@/lib/today";
 import { cn } from "@/lib/utils";
-import { surpriseCheck } from "@/server/learning/loop";
+import { expireMissions, surpriseCheck } from "@/server/learning/loop";
 import { confidenceBand } from "@/server/learning/skill-estimate";
 import { hasPassword } from "@/server/queries/learner";
 import { getToday, type Today } from "@/server/queries/today";
 import { requireLearner } from "@/server/session";
 
-import { GetMissionPanel } from "../missions/mission-controls";
+import { GetMissionPanel, MissionOverPanel } from "../missions/mission-controls";
 import { EmailNotice, type EmailNoticeState } from "./email-notice";
 import { WriteDiagnosticPanel } from "./write-diagnostic";
 
@@ -43,6 +43,8 @@ const ROW =
 /** Today (PRD §26): what to do next, what's in play, and where the learner stands. */
 export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const { user } = await requireLearner();
+  // Anything past its due time shows as over, not open.
+  await expireMissions(user.id);
   const [today, cookieStore, emailState] = await Promise.all([
     getToday(user.id),
     cookies(),
@@ -58,6 +60,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
     pathOnItsWay: today.path.firstPathOnItsWay,
     openSurprise: today.openSurprise,
     daily: today.daily,
+    dailyOver: today.dailyOver,
     openChecks: today.openChecks,
   });
 
@@ -294,6 +297,7 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
       const { mission } = next;
       const duration = durationLabel(mission.estimatedMinutes);
       const grading = mission.status === "submitted";
+      const left = grading ? null : timeLeftLabel(mission.dueAt);
       const action =
         mission.status === "assigned"
           ? "Start today's mission"
@@ -307,7 +311,7 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
           mood={grading ? "thinking" : "idle"}
           says={grading ? "Handed in. I'm grading it against the rubric now." : mission.reason}
           title={mission.title}
-          meta={`${missionTypeLabel(mission.type)}${duration ? `, ${duration.toLowerCase()}` : ""}`}
+          meta={[missionTypeLabel(mission.type), duration?.toLowerCase(), left].filter(Boolean).join(", ")}
           actions={
             <Button asChild variant={grading ? "secondary" : "default"}>
               <Link transitionTypes={NAV_FORWARD} href={`/missions/${mission.id}`}>
@@ -338,6 +342,9 @@ function NextCard({ next }: { next: NextAction<MissionSummary, OpenAssessment> }
 
     case "write-diagnostic":
       return <WriteDiagnosticPanel />;
+
+    case "mission-over":
+      return <MissionOverPanel cadence="daily" title={next.mission.title} />;
 
     case "get-mission":
       return (

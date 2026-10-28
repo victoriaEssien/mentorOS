@@ -131,6 +131,7 @@ describe("weeklyProgressEmail", () => {
   const digest = {
     results: [{ title: "Clean a <messy> sheet", label: "Mission", outcome: "pass" as const }],
     skills: [{ name: "Lookups", level: "Developing", pieces: 2 }],
+    missions: "5 of 7 handed in, 2 missed",
     focus: "Join two tables",
     challenge: null,
   };
@@ -167,6 +168,12 @@ describe("weeklyProgressEmail", () => {
     expect(email.html).toContain("Clean a &lt;messy&gt; sheet");
     expect(email.text).toContain("Lookups (now developing)");
     expect(email.text).toContain("Your focus this week: Join two tables.");
+  });
+
+  it("counts the daily missions missed, not only the ones handed in", () => {
+    expect(weeklyProgressEmail(learner, digest, "2026-10-19").text).toContain(
+      "Daily missions: 5 of 7 handed in, 2 missed.",
+    );
   });
 });
 

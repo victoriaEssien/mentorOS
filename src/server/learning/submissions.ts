@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { evaluation, mission, missionSkill, missionSubmission, skill } from "@/db/schema";
@@ -22,7 +22,7 @@ import type { SubmissionEvaluation } from "@/server/ai/schemas";
 import { readArtifacts } from "./artifacts";
 import type { SkillChange } from "./evidence";
 import { demonstratedAbility, GRADING_VERSION, verdictFor, type Verdict } from "./grading";
-import { MissionNotFoundError } from "./missions";
+import { expireOverdueMissions, MissionNotFoundError } from "./missions";
 import { completePathStep } from "./path";
 import { prepareEvidence } from "./profile";
 
@@ -31,6 +31,14 @@ export class MissionClosedError extends Error {
   constructor() {
     super("Mission is not open for submissions");
     this.name = "MissionClosedError";
+  }
+}
+
+/** It ran out of time before it was handed in: recorded as missed, not scored. */
+export class MissionExpiredError extends Error {
+  constructor() {
+    super("Mission expired before it was handed in");
+    this.name = "MissionExpiredError";
   }
 }
 
@@ -78,16 +86,19 @@ export async function submitWork(
         eq(mission.id, missionId),
         eq(mission.userId, userId),
         inArray(mission.status, ["assigned", "in_progress"]),
+        or(isNull(mission.dueAt), gt(mission.dueAt, now)),
       ),
     )
     .returning();
   if (!claimed) {
+    await expireOverdueMissions(userId, now);
     const [exists] = await db
-      .select({ id: mission.id })
+      .select({ status: mission.status })
       .from(mission)
       .where(and(eq(mission.id, missionId), eq(mission.userId, userId)))
       .limit(1);
-    throw exists ? new MissionClosedError() : new MissionNotFoundError();
+    if (!exists) throw new MissionNotFoundError();
+    throw exists.status === "expired" ? new MissionExpiredError() : new MissionClosedError();
   }
 
   const submissionId = crypto.randomUUID();

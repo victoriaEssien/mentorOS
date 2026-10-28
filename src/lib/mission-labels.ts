@@ -21,7 +21,36 @@ export const MISSION_STATUS_LABEL = {
   submitted: "Being evaluated",
   evaluated: "Evaluated",
   skipped: "Skipped",
+  expired: "Missed",
 } as const;
+
+/** "5 of 7 handed in, 2 missed": how the week's daily missions went. Null before there are any. */
+export function tallyLabel(tally: {
+  given: number;
+  handedIn: number;
+  missed: number;
+  skipped: number;
+}): string | null {
+  if (tally.given === 0) return null;
+  return [
+    `${tally.handedIn} of ${tally.given} handed in`,
+    tally.missed > 0 ? `${tally.missed} missed` : null,
+    tally.skipped > 0 ? `${tally.skipped} skipped` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** "5 h left", "40 min left", "3 days left"; null once it's due. */
+export function timeLeftLabel(dueAt: Date | null, now: Date = new Date()): string | null {
+  if (!dueAt) return null;
+  const minutes = Math.floor((dueAt.getTime() - now.getTime()) / 60_000);
+  if (minutes <= 0) return null;
+  if (minutes < 60) return `${minutes} min left`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h left`;
+  return `${Math.floor(hours / 24)} days left`;
+}
 
 /** "About 45 minutes", "About 4 hours". */
 export function durationLabel(minutes: number | null): string | null {

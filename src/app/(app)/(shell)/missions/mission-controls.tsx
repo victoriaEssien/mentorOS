@@ -3,7 +3,7 @@
 import { Play, SkipForward } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 
-import { Pip } from "@/components/brand/pip";
+import { Pip, type PipMood } from "@/components/brand/pip";
 import { FormAlert } from "@/components/form/form-alert";
 import { SubmitButton } from "@/components/form/submit-button";
 import {
@@ -23,18 +23,20 @@ import { getMissionAction, skipMissionAction, startMissionAction } from "./actio
 
 /**
  * "Get today's mission": writing one takes the model about half a minute, so the panel says so
- * while it works, then opens the new mission.
+ * while it works, then opens the new mission. Also says "Mission over" when the last one ran out.
  */
 export function GetMissionPanel({
   cadence,
   title,
   description,
   action,
+  mood = "idle",
 }: {
   cadence: "daily" | "weekly";
   title: string;
   description: string;
   action: string;
+  mood?: PipMood;
 }) {
   const [state, formAction, pending] = useActionState(getMissionAction.bind(null, cadence), {});
 
@@ -58,7 +60,7 @@ export function GetMissionPanel({
   return (
     <form action={formAction} className="rounded-lg border border-rule bg-window p-5 shadow-window">
       <div className="flex items-start gap-4">
-        <Pip size={52} />
+        <Pip mood={mood} size={52} />
         <div className="min-w-0">
           <p className="text-headline">{title}</p>
           <p className="mt-1 text-callout text-muted-foreground">{description}</p>
@@ -70,7 +72,7 @@ export function GetMissionPanel({
   );
 }
 
-/** Start, or skip with a confirmation that says skipping isn't held against them. */
+/** Start, or skip with a confirmation that says what skipping costs (a mark in the week, nothing more). */
 export function MissionActions({
   missionId,
   status,
@@ -109,7 +111,8 @@ export function MissionActions({
             </AlertDialogMedia>
             <AlertDialogTitle>Skip this mission?</AlertDialogTitle>
             <AlertDialogDescription>
-              It won&apos;t count against you. I&apos;ll write a different one when you&apos;re ready.
+              It shows in your week as skipped, never in your skill estimates. I&apos;ll write a different one
+              when you&apos;re ready.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -121,5 +124,18 @@ export function MissionActions({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** The slot's message when its last mission ran out of time, with the way to a new one. */
+export function MissionOverPanel({ cadence, title }: { cadence: "daily" | "weekly"; title: string }) {
+  return (
+    <GetMissionPanel
+      cadence={cadence}
+      mood="notYet"
+      title="Mission over"
+      description={`Time ran out on "${title}" before you handed it in. It's recorded as missed, not scored.`}
+      action={cadence === "daily" ? "Get a new mission" : "Get a new challenge"}
+    />
   );
 }

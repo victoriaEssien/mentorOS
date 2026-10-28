@@ -15,12 +15,14 @@ import {
   instructionSteps,
   MISSION_STATUS_LABEL,
   missionTypeLabel,
+  timeLeftLabel,
 } from "@/lib/mission-labels";
 import { cn } from "@/lib/utils";
+import { expireMissions } from "@/server/learning/loop";
 import { getMissionDetail } from "@/server/queries/missions";
 import { requireLearner } from "@/server/session";
 
-import { MissionActions } from "../mission-controls";
+import { MissionActions, MissionOverPanel } from "../mission-controls";
 
 export const metadata: Metadata = { title: "Mission" };
 
@@ -28,6 +30,8 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
   const { user } = await requireLearner();
   const { missionId } = await params;
 
+  // Past its due time, it opens as over rather than open.
+  await expireMissions(user.id);
   const detail = await getMissionDetail(user.id, missionId);
   if (!detail) notFound();
   const { mission, skills, evaluation } = detail;
@@ -37,6 +41,7 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
   // Work still to do keeps its actions in the bar pinned above the dock; finished work shows its
   // outcome in the window.
   const open = mission.status === "assigned" || mission.status === "in_progress";
+  const left = open ? timeLeftLabel(mission.dueAt) : null;
 
   return (
     <Screen>
@@ -45,6 +50,12 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
         subtitle={`${missionTypeLabel(mission.type)} ${mission.cadence === "weekly" ? "challenge" : "mission"}${duration ? `, ${duration.toLowerCase()}` : ""}.`}
         back={{ href: "/missions", label: "Missions" }}
       />
+
+      {mission.status === "expired" ? (
+        <div className="mb-6">
+          <MissionOverPanel cadence={mission.cadence} title={mission.title} />
+        </div>
+      ) : null}
 
       <section
         aria-label="Mission"
@@ -56,7 +67,10 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
             open ? "bg-signal text-signal-foreground" : "bg-raised",
           )}
         >
-          <span>{MISSION_STATUS_LABEL[mission.status]}</span>
+          <span>
+            {MISSION_STATUS_LABEL[mission.status]}
+            {left ? `, ${left}` : ""}
+          </span>
           <span className="font-mono font-medium">mission/{mission.cadence}</span>
         </div>
         <div className="p-5">
@@ -67,7 +81,7 @@ export default async function MissionPage({ params }: PageProps<"/missions/[miss
             </span>
           ) : null}
           <p className={cn("text-body", mission.difficulty && "mt-3")}>{mission.objective}</p>
-          {open ? null : (
+          {open || mission.status === "expired" ? null : (
             <div className="mt-5">
               <PrimaryAction
                 missionId={mission.id}
@@ -196,7 +210,7 @@ function PrimaryAction({
   hasEvaluation,
 }: {
   missionId: string;
-  status: "assigned" | "in_progress" | "submitted" | "evaluated" | "skipped";
+  status: "assigned" | "in_progress" | "submitted" | "evaluated" | "skipped" | "expired";
   hasEvaluation: boolean;
 }) {
   if (status === "assigned") return <MissionActions missionId={missionId} status="assigned" />;

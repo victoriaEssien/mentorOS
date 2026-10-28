@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -18,7 +18,11 @@ import { getTaxonomy } from "./skills";
 
 const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
 
-/** The missions tab: what's in play for each cadence, what's done, and whether there's a path. */
+/**
+ * The missions tab: what's in play for each cadence, what's over, and whether there's a path.
+ * `dailyOver` and `weeklyOver` are the latest mission of that cadence when it ran out of time, so
+ * the slot can say "Mission over" until a new one is assigned.
+ */
 export async function getMissionsOverview(userId: string) {
   const [rows, [path]] = await Promise.all([
     db
@@ -35,6 +39,7 @@ export async function getMissionsOverview(userId: string) {
         resources: mission.resources,
         estimatedMinutes: mission.estimatedMinutes,
         difficulty: mission.difficulty,
+        dueAt: mission.dueAt,
         createdAt: mission.createdAt,
         updatedAt: mission.updatedAt,
       })
@@ -49,16 +54,43 @@ export async function getMissionsOverview(userId: string) {
       .limit(1),
   ]);
 
-  const done = rows.filter((row) => row.status === "evaluated" || row.status === "skipped");
+  const done = rows.filter((row) => !isInPlay(row.status));
   const outcomes = await latestOutcomes(done.map((row) => row.id));
+  const over = (cadence: "daily" | "weekly") => {
+    const latest = rows.find((row) => row.cadence === cadence);
+    return latest?.status === "expired" ? latest : null;
+  };
 
   return {
     hasPath: Boolean(path),
     daily: rows.find((row) => row.cadence === "daily" && isInPlay(row.status)) ?? null,
     weekly: rows.find((row) => row.cadence === "weekly" && isInPlay(row.status)) ?? null,
+    dailyOver: over("daily"),
+    weeklyOver: over("weekly"),
     done: done.slice(0, 12).map((row) => ({ ...row, outcome: outcomes.get(row.id) ?? null })),
   };
 }
+
+/** How the daily missions given since a date (the last 7 days by default) ended: "2 missed of 7". */
+export async function getMissionTally(
+  userId: string,
+  since: Date = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+): Promise<MissionTally> {
+  const rows = await db
+    .select({ status: mission.status, missions: count() })
+    .from(mission)
+    .where(and(eq(mission.userId, userId), eq(mission.cadence, "daily"), gte(mission.createdAt, since)))
+    .groupBy(mission.status);
+  const by = new Map(rows.map((row) => [row.status, Number(row.missions)]));
+  return {
+    given: [...by.values()].reduce((sum, n) => sum + n, 0),
+    handedIn: (by.get("submitted") ?? 0) + (by.get("evaluated") ?? 0),
+    missed: by.get("expired") ?? 0,
+    skipped: by.get("skipped") ?? 0,
+  };
+}
+
+export type MissionTally = { given: number; handedIn: number; missed: number; skipped: number };
 
 export type MissionsOverview = Awaited<ReturnType<typeof getMissionsOverview>>;
 

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AiGenerationError } from "@/server/ai/generate";
 import { refreshLearningPath, submitMission } from "@/server/learning/loop";
 import { MissionNotFoundError } from "@/server/learning/missions";
-import { MissionClosedError } from "@/server/learning/submissions";
+import { MissionClosedError, MissionExpiredError } from "@/server/learning/submissions";
 import { requireLearner } from "@/server/session";
 
 export type HandInState = {
@@ -91,6 +91,12 @@ export async function handInAction(
   } catch (error) {
     if (error instanceof MissionNotFoundError) return { error: "This mission no longer exists." };
     if (error instanceof MissionClosedError) redirect(`/missions/${missionId}`);
+    if (error instanceof MissionExpiredError) {
+      return {
+        error:
+          "Time ran out on this mission before you handed it in, so it's recorded as missed and won't be scored. Copy your work if you want to keep it.",
+      };
+    }
     console.error(JSON.stringify({ event: "mission.evaluation_failed", missionId, reason: String(error) }));
     return {
       error:

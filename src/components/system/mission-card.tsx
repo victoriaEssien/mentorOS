@@ -3,7 +3,7 @@ import Link from "next/link";
 import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { DifficultyCells } from "@/components/system/difficulty-cells";
 import { Badge } from "@/components/ui/badge";
-import { durationLabel, MISSION_STATUS_LABEL, missionTypeLabel } from "@/lib/mission-labels";
+import { durationLabel, MISSION_STATUS_LABEL, missionTypeLabel, timeLeftLabel } from "@/lib/mission-labels";
 import type { MissionsOverview } from "@/server/queries/missions";
 
 export type MissionSummary = NonNullable<MissionsOverview["daily"]>;
@@ -11,6 +11,8 @@ export type MissionSummary = NonNullable<MissionsOverview["daily"]>;
 /** A mission in play, as one tappable window: what kind, how long, how hard, and what for. */
 export function MissionCard({ mission }: { mission: MissionSummary }) {
   const duration = durationLabel(mission.estimatedMinutes);
+  // Handed-in work is waiting on the evaluation, not on the clock.
+  const left = mission.status === "submitted" ? null : timeLeftLabel(mission.dueAt);
   return (
     <Link
       transitionTypes={NAV_FORWARD}
@@ -21,6 +23,7 @@ export function MissionCard({ mission }: { mission: MissionSummary }) {
         <span className="text-footnote text-muted-foreground">
           {missionTypeLabel(mission.type)}
           {duration ? `, ${duration.toLowerCase()}` : ""}
+          {left ? `, ${left}` : ""}
         </span>
         <Badge variant={mission.status === "assigned" ? "signal" : "neutral"}>
           {MISSION_STATUS_LABEL[mission.status]}
