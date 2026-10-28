@@ -17,21 +17,24 @@ import { handInAction, type HandInState } from "./actions";
 type Draft = {
   links: string[];
   content: string;
-  reflection: Record<"difficult" | "understoodBetter" | "wouldChange" | "stillConfused", string>;
+  reflection: Record<"learned" | "gotWrong" | "wouldChange" | "stillConfused", string>;
 };
 
 const emptyDraft: Draft = {
   links: [""],
   content: "",
-  reflection: { difficult: "", understoodBetter: "", wouldChange: "", stillConfused: "" },
+  reflection: { learned: "", gotWrong: "", wouldChange: "", stillConfused: "" },
 };
 
-/** Short questions after the work (PRD §20). Weekly challenges get all four. */
+/**
+ * Short questions after the work (PRD §20). The first two are asked every time: they're what the
+ * week's post is written from. Weekly challenges also ask what they'd do differently.
+ */
 const REFLECTION = [
-  { key: "difficult", label: "What was difficult?", weeklyOnly: false },
-  { key: "understoodBetter", label: "What do you understand better now?", weeklyOnly: true },
-  { key: "wouldChange", label: "What would you do differently?", weeklyOnly: true },
-  { key: "stillConfused", label: "What are you still unsure about?", weeklyOnly: false },
+  { key: "learned", label: "What did you learn?", required: true, weeklyOnly: false },
+  { key: "gotWrong", label: "What did you get wrong, or nearly?", required: true, weeklyOnly: false },
+  { key: "wouldChange", label: "What would you do differently?", required: false, weeklyOnly: true },
+  { key: "stillConfused", label: "What are you still unsure about?", required: false, weeklyOnly: false },
 ] as const;
 
 /**
@@ -173,16 +176,22 @@ export function HandInForm({
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-1">
           <span className="text-headline">Reflection</span>
-          <span className="ml-2 text-footnote text-muted-foreground">Optional</span>
         </legend>
         <p className="-mt-2 text-footnote text-muted-foreground">
-          It never changes your scores. It tells me what the scores can&apos;t: what felt shaky.
+          It never changes your scores. What you learned and got wrong also feeds your weekly post.
         </p>
         {REFLECTION.filter((question) => weekly || !question.weeklyOnly).map((question) => (
-          <Field key={question.key} id={question.key} label={question.label}>
+          <Field
+            key={question.key}
+            id={question.key}
+            label={question.required ? question.label : `${question.label} (optional)`}
+            error={state.fieldErrors?.[question.key as "learned" | "gotWrong"]}
+          >
             <Textarea
               id={question.key}
               name={question.key}
+              required={question.required}
+              minLength={question.required ? 10 : undefined}
               maxLength={2000}
               className="min-h-20"
               value={draft.reflection[question.key]}

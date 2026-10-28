@@ -7,6 +7,7 @@ export * as codingQuestionWriter from "./coding-question-writer";
 export * as skillEvaluator from "./skill-evaluator";
 export * as learningPlanner from "./learning-planner";
 export * as missionGenerator from "./mission-generator";
+export * as postDrafter from "./post-drafter";
 export * as submissionEvaluator from "./submission-evaluator";
 export * as skillProfileUpdater from "./skill-profile-updater";
 export * as studyGuideWriter from "./study-guide-writer";

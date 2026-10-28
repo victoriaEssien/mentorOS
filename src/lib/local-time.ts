@@ -64,3 +64,10 @@ export function localDay(now: Date, timeZone: string | null): string {
 
 /** Today on their calendar. */
 export const today = (timeZone: string | null) => localDay(new Date(), timeZone);
+
+/** The Monday a "YYYY-MM-DD" day's week starts on, as "YYYY-MM-DD". */
+export function weekStartOf(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  const sinceMonday = (date.getUTCDay() + 6) % 7;
+  return new Date(date.getTime() - sinceMonday * 86_400_000).toISOString().slice(0, 10);
+}

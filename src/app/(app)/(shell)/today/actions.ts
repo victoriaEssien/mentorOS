@@ -1,10 +1,12 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { knownTimeZone, TIME_ZONE_COOKIE, today } from "@/lib/local-time";
-import { dailySet, startDiagnostic } from "@/server/learning/loop";
+import { knownTimeZone, TIME_ZONE_COOKIE, today, weekStartOf } from "@/lib/local-time";
+import { dailySet, startDiagnostic, weeklyPostDraft } from "@/server/learning/loop";
+import { NothingToPostError, TooManyDraftsError } from "@/server/learning/weekly-post";
 import { RunnerUnavailableError } from "@/server/runner/run";
 import { requireLearner } from "@/server/session";
 
@@ -42,4 +44,26 @@ export async function getDailySetAction(): Promise<DailySetState> {
     };
   }
   redirect(`/assessments/${assessmentId}`);
+}
+
+export type PostState = { error?: string };
+
+/** Drafts (or redrafts) this week's posts and shows them. */
+export async function draftPostAction(): Promise<PostState> {
+  const { user } = await requireLearner();
+  const weekStart = weekStartOf(today(knownTimeZone((await cookies()).get(TIME_ZONE_COOKIE)?.value)));
+  try {
+    await weeklyPostDraft(user.id, weekStart);
+  } catch (error) {
+    if (error instanceof NothingToPostError) {
+      return { error: "Nothing's been handed in this week yet. Finish a mission or today's five first." };
+    }
+    if (error instanceof TooManyDraftsError) {
+      return { error: "That's four drafts this week. Edit the last one; it's yours to change." };
+    }
+    console.error(JSON.stringify({ event: "post.failed", reason: String(error) }));
+    return { error: "Drafting didn't finish. Try again in a moment." };
+  }
+  refresh();
+  return {};
 }

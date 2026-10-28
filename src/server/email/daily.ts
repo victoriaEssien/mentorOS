@@ -2,7 +2,10 @@ import "server-only";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { weeklyPostDraft } from "@/server/learning/loop";
+import { NothingToPostError } from "@/server/learning/weekly-post";
 import { getReminderPoint, getWeeklyDigest } from "@/server/queries/emails";
+import { getWeekPost } from "@/server/queries/posts";
 
 import { reminderEmail, weeklyProgressEmail } from "./engagement-emails";
 import { sendEmail, type SendResult } from "./send";
@@ -49,6 +52,7 @@ export async function runDailyEmails(now: Date = new Date()): Promise<DailySumma
     await eachInTurn(learners, async (learner) => {
       if (!(await claimWeekly(learner.id, now))) return;
       budget--;
+      await ensureLastWeeksPost(learner.id, since);
       const digest = await getWeeklyDigest(learner.id, since);
       count(await sendEmail(weeklyProgressEmail(recipient(learner), digest, weekKey)), "weekly");
     });
@@ -165,4 +169,21 @@ async function claimReminder(userId: string, lastActive: string, now: Date): Pro
     returning user_id
   `);
   return rows.length > 0;
+}
+
+/**
+ * Drafts last week's post for the Monday email if the learner didn't, when there's anything to
+ * post about. A failure only leaves the post out of the email.
+ */
+async function ensureLastWeeksPost(userId: string, since: Date) {
+  const weekStart = since.toISOString().slice(0, 10);
+  const { draft, handedIn } = await getWeekPost(userId, weekStart);
+  if (draft || handedIn === 0) return;
+  try {
+    await weeklyPostDraft(userId, weekStart);
+  } catch (error) {
+    if (!(error instanceof NothingToPostError)) {
+      console.error(JSON.stringify({ event: "post.weekly_failed", reason: String(error) }));
+    }
+  }
 }

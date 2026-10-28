@@ -12,7 +12,7 @@ import { requireLearner } from "@/server/session";
 
 export type HandInState = {
   error?: string;
-  fieldErrors?: Partial<Record<"content" | "links", string>>;
+  fieldErrors?: Partial<Record<"content" | "links" | "learned" | "gotWrong", string>>;
 };
 
 const optionalText = z
@@ -40,8 +40,16 @@ const handInSchema = z.object({
         .max(3, "Up to three links."),
     ),
   reflection: z.object({
-    difficult: optionalText,
-    understoodBetter: optionalText,
+    learned: z
+      .string()
+      .trim()
+      .min(10, "Say what you learned, in a sentence or two.")
+      .max(2000, "Keep each reflection under 2,000 characters."),
+    gotWrong: z
+      .string()
+      .trim()
+      .min(10, "Say what you got wrong, or nearly did. Everyone gets something wrong.")
+      .max(2000, "Keep each reflection under 2,000 characters."),
     wouldChange: optionalText,
     stillConfused: optionalText,
   }),
@@ -58,8 +66,8 @@ export async function handInAction(
     content: formData.get("content") ?? "",
     links: formData.getAll("link").map(String),
     reflection: {
-      difficult: formData.get("difficult") ?? "",
-      understoodBetter: formData.get("understoodBetter") ?? "",
+      learned: formData.get("learned") ?? "",
+      gotWrong: formData.get("gotWrong") ?? "",
       wouldChange: formData.get("wouldChange") ?? "",
       stillConfused: formData.get("stillConfused") ?? "",
     },
@@ -67,13 +75,18 @@ export async function handInAction(
   if (!parsed.success) {
     const fieldErrors: HandInState["fieldErrors"] = {};
     for (const issue of parsed.error.issues) {
-      const field = issue.path[0];
-      if ((field === "content" || field === "links") && !fieldErrors[field])
+      // Reflection answers sit one level down: ["reflection", "learned"].
+      const field = issue.path[0] === "reflection" ? issue.path[1] : issue.path[0];
+      if (
+        (field === "content" || field === "links" || field === "learned" || field === "gotWrong") &&
+        !fieldErrors[field]
+      ) {
         fieldErrors[field] = issue.message;
+      }
     }
     return {
       fieldErrors,
-      error: fieldErrors.content || fieldErrors.links ? undefined : parsed.error.issues[0]?.message,
+      error: Object.keys(fieldErrors).length > 0 ? undefined : parsed.error.issues[0]?.message,
     };
   }
 

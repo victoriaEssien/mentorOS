@@ -13,7 +13,14 @@ import { StaircaseMeter } from "@/components/system/staircase-meter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ASSESSMENT_KIND_LABEL } from "@/lib/assessment-kinds";
-import { greetingFor, knownTimeZone, shortDate, TIME_ZONE_COOKIE, today as todayIn } from "@/lib/local-time";
+import {
+  greetingFor,
+  knownTimeZone,
+  shortDate,
+  TIME_ZONE_COOKIE,
+  today as todayIn,
+  weekStartOf,
+} from "@/lib/local-time";
 import { durationLabel, missionTypeLabel, timeLeftLabel } from "@/lib/mission-labels";
 import { OUTCOME_BADGE } from "@/lib/outcomes";
 import { abilityLabel } from "@/lib/skill-labels";
@@ -23,6 +30,7 @@ import { expireMissions, surpriseCheck } from "@/server/learning/loop";
 import { confidenceBand } from "@/server/learning/skill-estimate";
 import { getDailySetStatus } from "@/server/queries/assessments";
 import { hasPassword } from "@/server/queries/learner";
+import { getWeekPost } from "@/server/queries/posts";
 import { getToday, type Today } from "@/server/queries/today";
 import { runnerConfigured } from "@/server/runner/run";
 import { requireLearner } from "@/server/session";
@@ -30,6 +38,7 @@ import { requireLearner } from "@/server/session";
 import { GetMissionPanel, MissionOverPanel } from "../missions/mission-controls";
 import { GetDailySetPanel } from "./daily-set";
 import { EmailNotice, type EmailNoticeState } from "./email-notice";
+import { WeeklyPostCard } from "./weekly-post";
 import { WriteDiagnosticPanel } from "./write-diagnostic";
 
 export const metadata: Metadata = { title: "Today" };
@@ -56,7 +65,11 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const timeZone = knownTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
   const { title, date } = greetingFor(user.name, timeZone);
   // The coding set needs the sandbox; without it the section stays hidden.
-  const daily = runnerConfigured() ? await getDailySetStatus(user.id, todayIn(timeZone)) : undefined;
+  const day = todayIn(timeZone);
+  const [daily, week] = await Promise.all([
+    runnerConfigured() ? getDailySetStatus(user.id, day) : undefined,
+    getWeekPost(user.id, weekStartOf(day)),
+  ]);
 
   const next = nextAction({
     openDiagnostic: today.openDiagnostic,
@@ -133,6 +146,12 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
               )}
             </Link>
           )}
+        </ScreenSection>
+      ) : null}
+
+      {week.draft || week.handedIn > 0 ? (
+        <ScreenSection title="This week's post">
+          <WeeklyPostCard draft={week.draft} />
         </ScreenSection>
       ) : null}
 

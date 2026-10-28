@@ -8,8 +8,10 @@ import { NAV_BACK } from "@/components/shell/page-transition";
 import { Screen, ScreenHeader, ScreenSection } from "@/components/shell/screen";
 import { Button } from "@/components/ui/button";
 import { getAssessmentResults } from "@/server/queries/assessments";
+import { getDailyNote } from "@/server/queries/posts";
 import { requireLearner } from "@/server/session";
 
+import { DailyNoteForm } from "./daily-note";
 import { AnswerList, AnswerStrip, Misconceptions, SkillList, tallyAnswers } from "./review";
 
 export const metadata: Metadata = { title: "Results" };
@@ -24,6 +26,7 @@ export default async function AssessmentResultsPage({
   if (!results) notFound();
   if (!results.review) redirect(`/assessments/${assessmentId}`);
   const { assessment, review } = results;
+  const note = assessment.kind === "daily" ? await getDailyNote(user.id, assessmentId) : null;
   const hasMisconceptions = review.answers.some((answer) => answer.grade.misconception);
 
   return (
@@ -64,6 +67,12 @@ export default async function AssessmentResultsPage({
         <ScreenSection title="Your answers">
           <AnswerList answers={review.answers} />
         </ScreenSection>
+
+        {assessment.kind === "daily" ? (
+          <ScreenSection title="Your note">
+            <DailyNoteForm assessmentId={assessmentId} note={note} />
+          </ScreenSection>
+        ) : null}
       </Screen>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-window pb-safe">

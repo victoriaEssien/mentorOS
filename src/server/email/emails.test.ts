@@ -134,6 +134,7 @@ describe("weeklyProgressEmail", () => {
     missions: "5 of 7 handed in, 2 missed",
     focus: "Join two tables",
     challenge: null,
+    post: null,
   };
 
   it("unsubscribes in one click from the weekly topic only", () => {
@@ -168,6 +169,21 @@ describe("weeklyProgressEmail", () => {
     expect(email.html).toContain("Clean a &lt;messy&gt; sheet");
     expect(email.text).toContain("Lookups (now developing)");
     expect(email.text).toContain("Your focus this week: Join two tables.");
+  });
+
+  it("carries last week's post, paragraph by paragraph, when there is one", () => {
+    const email = weeklyProgressEmail(
+      learner,
+      {
+        ...digest,
+        post: { linkedin: "Built a rate limiter.\n\nGot the window wrong first.", x: "Rate limiter, done." },
+      },
+      "2026-10-19",
+    );
+    expect(email.text).toContain("Your post for the week");
+    expect(email.text).toContain("Built a rate limiter.");
+    expect(email.text).toContain("Got the window wrong first.");
+    expect(email.text).toContain("Rate limiter, done.");
   });
 
   it("counts the daily missions missed, not only the ones handed in", () => {
