@@ -187,12 +187,6 @@ export function dailyEmail(to: Recipient, digest: DailyDigest, dayKey: string): 
     title: point.headline,
     blocks,
     action: { label: point.action, url: appUrl(point.path) },
-    after: [
-      {
-        kind: "muted",
-        text: "One email a day: what you did, and what's next. Turn it off in settings any time.",
-      },
-    ],
     reason: "You're getting this because the daily email is on for your mentorOS account.",
     unsubscribe: { label: "Stop daily emails", url: links.page, settingsUrl: appUrl("/settings") },
   });
