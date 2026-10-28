@@ -26,6 +26,7 @@ export async function getToday(userId: string) {
   return {
     path,
     daily: missions.daily,
+    dailyOver: missions.dailyOver,
     weekly: missions.weekly,
     openDiagnostic: open.find((row) => row.kind === "diagnostic") ?? null,
     hasDiagnostic: assessments.some((row) => row.kind === "diagnostic"),

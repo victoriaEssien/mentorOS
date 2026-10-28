@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { env } from "@/lib/env";
 import { runDailyEmails } from "@/server/email/daily";
+import { expireOverdueMissions } from "@/server/learning/missions";
 import { pruneThrottle } from "@/server/throttle";
 
 // A run sends at most DAILY_SEND_CAP emails, a few at a time.
@@ -15,8 +16,10 @@ export async function GET(request: Request) {
   if (!authorized(request.headers.get("authorization"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Before the emails, so a reminder never points at a mission that has already run out.
+  const missionsExpired = await expireOverdueMissions(null);
   const emails = await runDailyEmails();
-  return Response.json({ ...emails, throttleCountersPruned: await pruneThrottle() });
+  return Response.json({ ...emails, missionsExpired, throttleCountersPruned: await pruneThrottle() });
 }
 
 function authorized(header: string | null): boolean {

@@ -9,6 +9,7 @@ const settled = {
   pathOnItsWay: false,
   openSurprise: null,
   daily: null,
+  dailyOver: null,
   openChecks: [],
 };
 
@@ -55,5 +56,16 @@ describe("nextAction", () => {
 
   it("offers new work only when nothing is open", () => {
     expect(nextAction(settled)).toEqual({ kind: "get-mission" });
+  });
+
+  it("says when today's mission ran out of time, ahead of a check they started", () => {
+    expect(nextAction({ ...settled, dailyOver: "missed", openChecks: ["check"] })).toEqual({
+      kind: "mission-over",
+      mission: "missed",
+    });
+    expect(nextAction({ ...settled, daily: "mission", dailyOver: "missed" })).toEqual({
+      kind: "mission",
+      mission: "mission",
+    });
   });
 });

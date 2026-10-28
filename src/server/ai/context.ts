@@ -154,12 +154,13 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
         }
       : null,
     recentMissions: missions
-      .filter((m) => m.status === "evaluated" || m.status === "skipped")
+      .filter((m) => m.status === "evaluated" || m.status === "skipped" || m.status === "expired")
       .map((m) => {
         const latest = missionEvaluations.get(m.id);
         return {
           title: m.title,
           outcome: latest?.outcome ?? null,
+          ended: m.status === "skipped" || m.status === "expired" ? m.status : null,
           completedAt: m.updatedAt.toISOString(),
           points: latest ? missionPoints(latest.result, m.criteria) : null,
         };

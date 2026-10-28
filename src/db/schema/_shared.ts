@@ -58,12 +58,14 @@ export const missionType = pgEnum("mission_type", [
 
 export const missionCadence = pgEnum("mission_cadence", ["daily", "weekly"]);
 
+/** `expired`: not handed in by its due time. Recorded, never scored. */
 export const missionStatus = pgEnum("mission_status", [
   "assigned",
   "in_progress",
   "submitted",
   "evaluated",
   "skipped",
+  "expired",
 ]);
 
 export const pathItemStatus = pgEnum("path_item_status", ["upcoming", "current", "completed", "deferred"]);

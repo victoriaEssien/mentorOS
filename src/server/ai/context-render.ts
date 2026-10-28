@@ -79,6 +79,8 @@ export type LearnerContext = {
   recentMissions: {
     title: string;
     outcome: Outcome | null;
+    /** Why it has no outcome: skipped, or ran out of time before it was handed in. */
+    ended?: "skipped" | "expired" | null;
     completedAt: string | null;
     /** Where the marks went in its latest evaluation, so "why did I get 16/40?" has an answer. */
     points: MissionPoints | null;
@@ -207,7 +209,13 @@ export function renderLearnerContext(context: LearnerContext): string {
             .map((criterion) => `${criterion.key} ${criterion.score}/${criterion.max}`)
             .join(", ")})`
         : "";
-      lines.push(`- ${mission.title}: ${mission.outcome ?? "not evaluated"}${points}`);
+      const ended =
+        mission.ended === "expired"
+          ? "missed, ran out of time before it was handed in"
+          : mission.ended === "skipped"
+            ? "skipped"
+            : "not evaluated";
+      lines.push(`- ${mission.title}: ${mission.outcome ?? ended}${points}`);
     }
   }
 

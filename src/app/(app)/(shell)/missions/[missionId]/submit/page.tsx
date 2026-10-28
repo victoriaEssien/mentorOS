@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { Screen, ScreenHeader } from "@/components/shell/screen";
+import { expireMissions } from "@/server/learning/loop";
 import { getMissionDetail } from "@/server/queries/missions";
 import { requireLearner } from "@/server/session";
 
@@ -16,6 +17,7 @@ export default async function MissionSubmitPage({ params }: PageProps<"/missions
   const { user } = await requireLearner();
   const { missionId } = await params;
 
+  await expireMissions(user.id);
   const detail = await getMissionDetail(user.id, missionId);
   if (!detail) notFound();
   const { mission } = detail;

@@ -3,18 +3,18 @@ import { and, count, desc, eq, gte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { skill, skillEvidence, userSkill } from "@/db/schema";
-import { durationLabel } from "@/lib/mission-labels";
+import { durationLabel, tallyLabel, timeLeftLabel } from "@/lib/mission-labels";
 import { abilityLabel } from "@/lib/skill-labels";
 import { nextAction } from "@/lib/today";
 import type { ReminderPoint, WeeklyDigest } from "@/server/email/engagement-emails";
 
-import { getMissionsOverview } from "./missions";
+import { getMissionsOverview, getMissionTally } from "./missions";
 import { getPathOverview } from "./path";
 import { getRecentResults, getToday } from "./today";
 
 /** What a learner's last week showed, for the Monday email. */
 export async function getWeeklyDigest(userId: string, since: Date): Promise<WeeklyDigest> {
-  const [results, skills, path, missions] = await Promise.all([
+  const [results, skills, path, missions, tally] = await Promise.all([
     getRecentResults(userId, 6, since),
     db
       .select({ name: skill.name, ability: userSkill.ability, pieces: count() })
@@ -30,6 +30,7 @@ export async function getWeeklyDigest(userId: string, since: Date): Promise<Week
       .limit(4),
     getPathOverview(userId),
     getMissionsOverview(userId),
+    getMissionTally(userId, since),
   ]);
 
   return {
@@ -39,6 +40,7 @@ export async function getWeeklyDigest(userId: string, since: Date): Promise<Week
       level: s.ability === null ? "Not measured" : abilityLabel(s.ability),
       pieces: Number(s.pieces),
     })),
+    missions: tallyLabel(tally),
     focus: path.current?.title ?? null,
     challenge: missions.weekly?.title ?? null,
   };
@@ -57,19 +59,28 @@ export async function getReminderPoint(userId: string): Promise<ReminderPoint> {
     pathOnItsWay: today.path.firstPathOnItsWay,
     openSurprise: today.openSurprise,
     daily: today.daily,
+    dailyOver: today.dailyOver,
     openChecks: today.openChecks,
   });
 
   switch (next.kind) {
     case "mission": {
       const duration = durationLabel(next.mission.estimatedMinutes);
+      const left = timeLeftLabel(next.mission.dueAt);
       return {
         headline: "Your mission is still waiting",
-        detail: `${next.mission.title}${duration ? `, ${duration.toLowerCase()}` : ""}. It's where you left it.`,
+        detail: `${next.mission.title}${duration ? `, ${duration.toLowerCase()}` : ""}. It's where you left it${left ? `, with ${left}` : ""}.`,
         action: "Pick it up",
         path: `/missions/${next.mission.id}`,
       };
     }
+    case "mission-over":
+      return {
+        headline: "Your last mission ran out of time",
+        detail: `${next.mission.title} is recorded as missed. A new one is ready when you are.`,
+        action: "Get a new mission",
+        path: "/today",
+      };
     case "check":
       return {
         headline: "Your check is still waiting",

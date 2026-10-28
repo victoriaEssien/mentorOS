@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { isUniqueViolation } from "@/db/errors";
@@ -37,6 +37,28 @@ export class NoPathError extends Error {
   }
 }
 
+/**
+ * Marks missions that ran out of time as expired: still not started or in progress at their due
+ * time (a day for a daily mission, a week for a challenge). Work already handed in never expires.
+ * Expired missions stay on record and count as missed in the week; they are never evidence.
+ * Checked lazily, whenever missions are looked at or assigned, and swept by the daily job. Without
+ * a userId it sweeps everyone. Returns how many expired.
+ */
+export async function expireOverdueMissions(userId: string | null, now: Date = new Date()): Promise<number> {
+  const expired = await db
+    .update(mission)
+    .set({ status: "expired" })
+    .where(
+      and(
+        userId ? eq(mission.userId, userId) : undefined,
+        inArray(mission.status, ["assigned", "in_progress"]),
+        lte(mission.dueAt, now),
+      ),
+    )
+    .returning({ id: mission.id });
+  return expired.length;
+}
+
 /** The mission in play for this cadence, if any. */
 export async function getMissionInPlay(userId: string, cadence: Cadence) {
   const [row] = await db
@@ -59,6 +81,7 @@ export async function assignMission(
   cadence: Cadence,
   now: Date = new Date(),
 ): Promise<{ missionId: string; created: boolean }> {
+  await expireOverdueMissions(userId, now);
   const inPlay = await getMissionInPlay(userId, cadence);
   if (inPlay) return { missionId: inPlay.id, created: false };
 
@@ -201,7 +224,10 @@ export async function missionInput(
       difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
       allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
       sideSkills: side.map((s) => ({ slug: s.slug, name: s.name })),
-      recentMissions: history.map((h) => ({ title: h.title, outcome: h.outcome })),
+      recentMissions: history.map((h) => ({
+        title: h.title,
+        outcome: h.outcome ?? (h.expired ? "ran out of time, not handed in" : null),
+      })),
     },
   };
 }
@@ -213,6 +239,7 @@ async function missionHistory(userId: string, skillId: string) {
       id: mission.id,
       title: mission.title,
       difficulty: mission.difficulty,
+      status: mission.status,
       outcome: evaluation.outcome,
       evaluatedAt: evaluation.createdAt,
     })
@@ -224,10 +251,18 @@ async function missionHistory(userId: string, skillId: string) {
     .orderBy(desc(mission.createdAt), desc(evaluation.createdAt))
     .limit(20);
 
-  const byMission = new Map<string, { title: string; difficulty: number | null; outcome: Outcome | null }>();
+  const byMission = new Map<
+    string,
+    { title: string; difficulty: number | null; outcome: Outcome | null; expired: boolean }
+  >();
   for (const row of rows) {
     if (!byMission.has(row.id)) {
-      byMission.set(row.id, { title: row.title, difficulty: row.difficulty, outcome: row.outcome });
+      byMission.set(row.id, {
+        title: row.title,
+        difficulty: row.difficulty,
+        outcome: row.outcome,
+        expired: row.status === "expired",
+      });
     }
   }
   return [...byMission.values()].slice(0, 5);
@@ -246,8 +281,8 @@ export async function startMission(userId: string, missionId: string): Promise<v
 }
 
 /**
- * Skipping frees the slot for a different mission. It isn't evidence either way: a skipped
- * mission says nothing about what the learner can do.
+ * Skipping frees the slot for a different mission. It shows in the week as skipped but isn't
+ * evidence either way: a skipped mission says nothing about what the learner can do.
  */
 export async function skipMission(userId: string, missionId: string): Promise<void> {
   await moveMission(userId, missionId, ["assigned", "in_progress"], "skipped");

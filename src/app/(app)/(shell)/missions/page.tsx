@@ -8,12 +8,13 @@ import { AlertCard } from "@/components/system/alert-card";
 import { MissionCard } from "@/components/system/mission-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MISSION_STATUS_LABEL, missionTypeLabel } from "@/lib/mission-labels";
+import { MISSION_STATUS_LABEL, missionTypeLabel, tallyLabel } from "@/lib/mission-labels";
 import { OUTCOME_BADGE } from "@/lib/outcomes";
-import { getMissionsOverview } from "@/server/queries/missions";
+import { expireMissions } from "@/server/learning/loop";
+import { getMissionsOverview, getMissionTally } from "@/server/queries/missions";
 import { requireLearner } from "@/server/session";
 
-import { GetMissionPanel } from "./mission-controls";
+import { GetMissionPanel, MissionOverPanel } from "./mission-controls";
 
 export const metadata: Metadata = { title: "Missions" };
 
@@ -22,7 +23,13 @@ export const maxDuration = 120;
 
 export default async function MissionsPage() {
   const { user } = await requireLearner();
-  const { hasPath, daily, weekly, done } = await getMissionsOverview(user.id);
+  // Anything past its due time shows as over, not open.
+  await expireMissions(user.id);
+  const [{ hasPath, daily, weekly, dailyOver, weeklyOver, done }, tally] = await Promise.all([
+    getMissionsOverview(user.id),
+    getMissionTally(user.id),
+  ]);
+  const week = tallyLabel(tally);
 
   return (
     <Screen>
@@ -45,6 +52,8 @@ export default async function MissionsPage() {
           <ScreenSection title="Today">
             {daily ? (
               <MissionCard mission={daily} />
+            ) : dailyOver ? (
+              <MissionOverPanel cadence="daily" title={dailyOver.title} />
             ) : (
               <GetMissionPanel
                 cadence="daily"
@@ -58,6 +67,8 @@ export default async function MissionsPage() {
           <ScreenSection title="This week">
             {weekly ? (
               <MissionCard mission={weekly} />
+            ) : weeklyOver ? (
+              <MissionOverPanel cadence="weekly" title={weeklyOver.title} />
             ) : (
               <GetMissionPanel
                 cadence="weekly"
@@ -71,7 +82,10 @@ export default async function MissionsPage() {
       )}
 
       {done.length > 0 ? (
-        <ScreenSection title="Done">
+        <ScreenSection title="Past missions">
+          {week ? (
+            <p className="mb-3 text-footnote text-muted-foreground">Daily missions, last 7 days: {week}.</p>
+          ) : null}
           <ol className="divide-y divide-rule border-y border-rule">
             {done.map((mission) => {
               const badge = mission.outcome ? OUTCOME_BADGE[mission.outcome] : null;
@@ -86,7 +100,10 @@ export default async function MissionsPage() {
                       <span className="block truncate text-body font-semibold">{mission.title}</span>
                       <span className="block text-footnote text-muted-foreground">
                         {missionTypeLabel(mission.type)},{" "}
-                        {mission.updatedAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        {/* A missed mission is dated by when it was due, not when the miss was recorded. */}
+                        {(
+                          (mission.status === "expired" ? mission.dueAt : null) ?? mission.updatedAt
+                        ).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                       </span>
                     </span>
                     {badge ? (

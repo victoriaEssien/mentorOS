@@ -26,6 +26,8 @@ const OUTCOME_WORDS: Record<Outcome, string> = {
 export type WeeklyDigest = {
   results: { title: string; label: string; outcome: Outcome }[];
   skills: { name: string; level: string; pieces: number }[];
+  /** How the week's daily missions went ("5 of 7 handed in, 2 missed"), if any were given. */
+  missions: string | null;
   /** The path step they're on. */
   focus: string | null;
   /** This week's challenge, if one is in play. */
@@ -52,6 +54,7 @@ export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey
       }),
     });
   }
+  if (digest.missions) blocks.push({ kind: "text", text: `Daily missions: ${digest.missions}.` });
   if (digest.skills.length > 0) {
     blocks.push({
       kind: "text",

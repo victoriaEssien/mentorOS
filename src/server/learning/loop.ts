@@ -9,7 +9,7 @@ import { gradeAttempt } from "./assessment-grading";
 import { checkOnSkill, surpriseCheckIfDue } from "./checks";
 import { ensureDiagnostic } from "./diagnostic";
 import { getMentorThread, hintOnQuestion, replyInThread } from "./mentor-chat";
-import { assignMission, type Cadence } from "./missions";
+import { assignMission, expireOverdueMissions, type Cadence } from "./missions";
 import { hasActivePath, planPath } from "./path";
 import { updateLearnerSettings, type LearnerSettings } from "./settings";
 import { submitWork, type WorkInput } from "./submissions";
@@ -114,6 +114,14 @@ export async function refreshLearningPath(
  */
 export async function changeSettings(userId: string, changes: Partial<LearnerSettings>): Promise<void> {
   await updateLearnerSettings(userId, changes);
+}
+
+/**
+ * Marks the learner's missions that ran out of time as missed (24 hours for a daily mission, a week
+ * for a challenge). Pages that show missions call this first, so nothing overdue looks open.
+ */
+export async function expireMissions(userId: string): Promise<void> {
+  await expireOverdueMissions(userId);
 }
 
 /**
