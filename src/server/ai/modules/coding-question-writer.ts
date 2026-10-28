@@ -15,7 +15,7 @@ import { generatedCodingQuestionSchema, type GeneratedCodingQuestion } from "../
  * the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 export type CodingKind = "program" | "algorithm" | "fix_bug" | "explain_code" | "predict_output";
 
@@ -63,6 +63,10 @@ Tests: examples are 2 or 3 small cases shown to them; tests are 6 to 10 hidden c
 edge cases (empty or minimal input, duplicates, extremes of the constraints, the trap the skill is
 about). Compute every expected output by working it through carefully; they will be checked by
 running your solution.
+
+The question is shown as plain text with \`inline code\` and line breaks only: no code fences, no
+headings, no tables. State the input format, output format and constraints in it, but never the
+examples: they're shown separately.
 
 expected: what a strong answer contains, including the approach and its time and space
 complexity. gradingNotes: how to tell strong from partial from wrong. No em dashes anywhere.

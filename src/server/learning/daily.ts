@@ -12,7 +12,7 @@ import { runnerConfigured, RunnerUnavailableError, runTests, type RunOutcome } f
 import { release, take, type Limit } from "@/server/throttle";
 
 import type { AttemptEvaluationResult } from "./assessment-grading";
-import { checkQuestion } from "./daily-check";
+import { checkQuestion, cleanQuestion } from "./daily-check";
 import { DAILY_POOLS, planDailySet, type PlannedQuestion } from "./daily-plan";
 import type { Outcome } from "./difficulty";
 import { blockedSkills } from "./readiness";
@@ -132,7 +132,7 @@ async function writeDailySet(userId: string, day: string): Promise<string> {
           const skillId = skillBySlug.get(entry.planned.skill)!.id;
           const prompt: ItemPrompt = {
             title: entry.question.title,
-            question: entry.question.question,
+            question: cleanQuestion(entry.question.question),
             code: entry.question.code,
             options: null,
             language: entry.planned.language,

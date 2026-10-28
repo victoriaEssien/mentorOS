@@ -85,6 +85,22 @@ export async function checkQuestion(
   return { ok: true, examples, tests, output: null };
 }
 
+/**
+ * The question as the learner reads it: plain text with inline code. Drops an "Examples" section the
+ * writer added anyway (examples are shown on their own) and the lines of any code fence.
+ */
+export function cleanQuestion(text: string): string {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const examplesAt = lines.findIndex((line) =>
+    /^\s*(?:\*\*|#+\s*)?(?:examples?|sample input)\b[^a-z]*$/i.test(line),
+  );
+  return (examplesAt >= 0 ? lines.slice(0, examplesAt) : lines)
+    .filter((line) => !/^\s*```/.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function clip(text: string) {
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;
 }

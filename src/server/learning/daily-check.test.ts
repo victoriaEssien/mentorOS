@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { GeneratedCodingQuestion } from "@/server/ai/schemas";
 
-import { checkQuestion, type RunTests } from "./daily-check";
+import { checkQuestion, cleanQuestion, type RunTests } from "./daily-check";
 
 const example = (n: number) => ({ input: `${n}\n`, output: `${n * 2}\n` });
 
@@ -94,5 +94,31 @@ describe("checkQuestion", () => {
       ok: false,
     });
     expect(await checkQuestion("predict_output", "go", ask, printing(["", ""]))).toMatchObject({ ok: false });
+  });
+});
+
+describe("cleanQuestion", () => {
+  it("drops an examples section and code fences, keeping formats and constraints", () => {
+    const written = [
+      "Count the ranges that add up to `target`.",
+      "",
+      "Input: `n` and `target`, then `n` integers.",
+      "Constraints: `0 <= n <= 200000`.",
+      "",
+      "Examples:",
+      "```text",
+      "5 3",
+      "1 2 1 -1 2",
+      "```",
+    ].join("\n");
+    expect(cleanQuestion(written)).toBe(
+      "Count the ranges that add up to `target`.\n\nInput: `n` and `target`, then `n` integers.\nConstraints: `0 <= n <= 200000`.",
+    );
+  });
+
+  it("keeps a sentence that only mentions examples", () => {
+    const text = "Print one integer.\nThe examples below show the format.";
+    expect(cleanQuestion(text)).toBe(text);
+    expect(cleanQuestion("Solve it.\n\n**Example 1**\n3")).toBe("Solve it.");
   });
 });

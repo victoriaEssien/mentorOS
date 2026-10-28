@@ -16,7 +16,7 @@ export const generatedCodingQuestionSchema = z.object({
   question: z
     .string()
     .describe(
-      "The task in plain language (markdown allowed). For programs: what to compute, the exact input format and the exact output format",
+      "The task in plain language, with inline code only (no code fences). For programs: what to compute, the exact input and output formats, and the constraints. Never the examples",
     ),
   code: z
     .string()
