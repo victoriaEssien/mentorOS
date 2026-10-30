@@ -17,7 +17,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * the database.
  */
 
-export const PROMPT_VERSION = "v9";
+export const PROMPT_VERSION = "v11";
 
 const SYSTEM_PROMPT = `
 You write the project for this week's theme, for a software engineer who learns by building and
@@ -41,8 +41,12 @@ Write one project:
   - mobile app: React Native with Expo unless their stack names another mobile framework, running
     in Expo Go or a simulator.
 - It runs as long as the theme: durationWeeks is the number of weeks given. Size it to the hours a
-  week they told you, less about half an hour a day for the daily concept; with no hours given, a
-  week is about 6 to 10 hours of evenings. Scope it to fit. estimatedMinutes is the total effort.
+  week they told you, less about half an hour a day for the daily concept, but never under about two
+  hours a week: with little time, make it small and complete rather than big and half done. With no
+  hours given, a week is about 6 to 10 hours of evenings. estimatedMinutes is the total effort, and
+  it has to be honest: walk through the work each acceptance criterion takes and add it up. If that
+  doesn't fit their hours, cut criteria (move the extra into stretchGoal) rather than understate
+  the time.
 - Pitch it at the difficulty given: 1 is guided and small, 3 is a realistic build with judgement
   calls, 5 is open-ended. The mode says how: advance (stretch them), consolidate (same level, new
   angle), remediate (smaller and more guided).
