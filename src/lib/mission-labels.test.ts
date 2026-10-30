@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { durationLabel, instructionSteps, tallyLabel, timeLeftLabel } from "./mission-labels";
+import { durationLabel, instructionSteps, timeLeftLabel } from "./mission-labels";
 
 describe("durationLabel", () => {
   it("reads in minutes under an hour and a half, hours after", () => {
@@ -36,19 +36,5 @@ describe("timeLeftLabel", () => {
     expect(timeLeftLabel(inMinutes(0), now)).toBeNull();
     expect(timeLeftLabel(inMinutes(-90), now)).toBeNull();
     expect(timeLeftLabel(null, now)).toBeNull();
-  });
-});
-
-describe("tallyLabel", () => {
-  it("leads with what was handed in and names only what went wrong", () => {
-    expect(tallyLabel({ given: 7, handedIn: 5, missed: 2, skipped: 0 })).toBe("5 of 7 handed in, 2 missed");
-    expect(tallyLabel({ given: 6, handedIn: 4, missed: 1, skipped: 1 })).toBe(
-      "4 of 6 handed in, 1 missed, 1 skipped",
-    );
-    expect(tallyLabel({ given: 3, handedIn: 3, missed: 0, skipped: 0 })).toBe("3 of 3 handed in");
-  });
-
-  it("says nothing before any mission was given", () => {
-    expect(tallyLabel({ given: 0, handedIn: 0, missed: 0, skipped: 0 })).toBeNull();
   });
 });

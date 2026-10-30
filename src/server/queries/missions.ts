@@ -1,99 +1,83 @@
 import "server-only";
-import { and, count, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import {
-  evaluation,
-  learningPath,
-  mission,
-  missionSkill,
-  missionSubmission,
-  skill,
-  userSkill,
-} from "@/db/schema";
+import { evaluation, mission, missionSubmission } from "@/db/schema";
 import type { SubmissionEvaluationResult } from "@/server/learning/submissions";
-
-import { getTaxonomy } from "./skills";
 
 const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
 
 /**
- * The missions tab: what's in play for each cadence, what's over, and whether there's a path.
- * `dailyOver` and `weeklyOver` are the latest mission of that cadence when it ran out of time, so
- * the slot can say "Mission over" until a new one is assigned.
+ * The projects tab: the project in play, the last one if it ran out of time (so its slot can say
+ * "Project over" until a new one is written), and past projects. Old daily missions stay in the
+ * database but no longer show.
  */
 export async function getMissionsOverview(userId: string) {
-  const [rows, [path]] = await Promise.all([
-    db
-      .select({
-        id: mission.id,
-        type: mission.type,
-        cadence: mission.cadence,
-        status: mission.status,
-        title: mission.title,
-        objective: mission.objective,
-        reason: mission.reason,
-        // What to read before starting, shown on the path's current step too.
-        requiredKnowledge: mission.requiredKnowledge,
-        resources: mission.resources,
-        estimatedMinutes: mission.estimatedMinutes,
-        difficulty: mission.difficulty,
-        dueAt: mission.dueAt,
-        createdAt: mission.createdAt,
-        updatedAt: mission.updatedAt,
-      })
-      .from(mission)
-      .where(eq(mission.userId, userId))
-      .orderBy(desc(mission.createdAt))
-      .limit(30),
-    db
-      .select({ id: learningPath.id })
-      .from(learningPath)
-      .where(and(eq(learningPath.userId, userId), isNull(learningPath.archivedAt)))
-      .limit(1),
-  ]);
+  const rows = await db
+    .select({
+      id: mission.id,
+      type: mission.type,
+      cadence: mission.cadence,
+      status: mission.status,
+      title: mission.title,
+      objective: mission.objective,
+      reason: mission.reason,
+      stack: mission.stack,
+      requiredKnowledge: mission.requiredKnowledge,
+      resources: mission.resources,
+      estimatedMinutes: mission.estimatedMinutes,
+      difficulty: mission.difficulty,
+      dueAt: mission.dueAt,
+      createdAt: mission.createdAt,
+      updatedAt: mission.updatedAt,
+    })
+    .from(mission)
+    .where(and(eq(mission.userId, userId), eq(mission.cadence, "weekly")))
+    .orderBy(desc(mission.createdAt))
+    .limit(30);
 
   const done = rows.filter((row) => !isInPlay(row.status));
   const outcomes = await latestOutcomes(done.map((row) => row.id));
-  const over = (cadence: "daily" | "weekly") => {
-    const latest = rows.find((row) => row.cadence === cadence);
-    return latest?.status === "expired" ? latest : null;
-  };
+  const latest = rows[0];
 
   return {
-    hasPath: Boolean(path),
-    daily: rows.find((row) => row.cadence === "daily" && isInPlay(row.status)) ?? null,
-    weekly: rows.find((row) => row.cadence === "weekly" && isInPlay(row.status)) ?? null,
-    dailyOver: over("daily"),
-    weeklyOver: over("weekly"),
-    done: done.slice(0, 12).map((row) => ({ ...row, outcome: outcomes.get(row.id) ?? null })),
+    weekly: rows.find((row) => isInPlay(row.status)) ?? null,
+    weeklyOver: latest?.status === "expired" ? latest : null,
+    done: done.slice(0, 20).map((row) => ({ ...row, outcome: outcomes.get(row.id) ?? null })),
   };
 }
-
-/** How the daily missions given since a date (the last 7 days by default) ended: "2 missed of 7". */
-export async function getMissionTally(
-  userId: string,
-  since: Date = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-): Promise<MissionTally> {
-  const rows = await db
-    .select({ status: mission.status, missions: count() })
-    .from(mission)
-    .where(and(eq(mission.userId, userId), eq(mission.cadence, "daily"), gte(mission.createdAt, since)))
-    .groupBy(mission.status);
-  const by = new Map(rows.map((row) => [row.status, Number(row.missions)]));
-  const handedIn = (by.get("submitted") ?? 0) + (by.get("evaluated") ?? 0);
-  const missed = by.get("expired") ?? 0;
-  const skipped = by.get("skipped") ?? 0;
-  // A mission still running isn't missed or handed in yet, so it isn't counted either way.
-  return { given: handedIn + missed + skipped, handedIn, missed, skipped };
-}
-
-export type MissionTally = { given: number; handedIn: number; missed: number; skipped: number };
 
 export type MissionsOverview = Awaited<ReturnType<typeof getMissionsOverview>>;
 
-/** One mission in full, with its skills (and current estimates) and its latest evaluation. */
+/** The current theme's project, whatever its state, for Today. */
+export async function getThemeProject(userId: string, missionId: string | null) {
+  if (!missionId) return null;
+  const [row] = await db
+    .select({
+      id: mission.id,
+      type: mission.type,
+      cadence: mission.cadence,
+      status: mission.status,
+      title: mission.title,
+      objective: mission.objective,
+      reason: mission.reason,
+      stack: mission.stack,
+      requiredKnowledge: mission.requiredKnowledge,
+      resources: mission.resources,
+      estimatedMinutes: mission.estimatedMinutes,
+      difficulty: mission.difficulty,
+      dueAt: mission.dueAt,
+      createdAt: mission.createdAt,
+      updatedAt: mission.updatedAt,
+    })
+    .from(mission)
+    .where(and(eq(mission.id, missionId), eq(mission.userId, userId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/** One project in full, with its latest review. */
 export async function getMissionDetail(userId: string, missionId: string) {
   if (!z.uuid().safeParse(missionId).success) return null;
 
@@ -104,32 +88,15 @@ export async function getMissionDetail(userId: string, missionId: string) {
     .limit(1);
   if (!row) return null;
 
-  const [skills, [latest]] = await Promise.all([
-    db
-      .select({
-        id: skill.id,
-        slug: skill.slug,
-        name: skill.name,
-        estimate: {
-          ability: userSkill.ability,
-          confidence: userSkill.confidence,
-          evidenceCount: userSkill.evidenceCount,
-        },
-      })
-      .from(missionSkill)
-      .innerJoin(skill, eq(skill.id, missionSkill.skillId))
-      .leftJoin(userSkill, and(eq(userSkill.skillId, skill.id), eq(userSkill.userId, userId)))
-      .where(eq(missionSkill.missionId, missionId)),
-    db
-      .select({ evaluationId: evaluation.id, outcome: evaluation.outcome })
-      .from(missionSubmission)
-      .innerJoin(evaluation, eq(evaluation.submissionId, missionSubmission.id))
-      .where(eq(missionSubmission.missionId, missionId))
-      .orderBy(desc(evaluation.createdAt))
-      .limit(1),
-  ]);
+  const [latest] = await db
+    .select({ evaluationId: evaluation.id, outcome: evaluation.outcome })
+    .from(missionSubmission)
+    .innerJoin(evaluation, eq(evaluation.submissionId, missionSubmission.id))
+    .where(eq(missionSubmission.missionId, missionId))
+    .orderBy(desc(evaluation.createdAt))
+    .limit(1);
 
-  return { mission: row, skills, evaluation: latest ?? null };
+  return { mission: row, evaluation: latest ?? null };
 }
 
 export type MissionDetail = NonNullable<Awaited<ReturnType<typeof getMissionDetail>>>;
@@ -152,9 +119,8 @@ async function latestOutcomes(missionIds: string[]) {
 }
 
 /**
- * The latest evaluation of a mission, with each criterion's label and maximum from the mission,
- * and what it changed in the skill profile. Null when the mission isn't the learner's or hasn't
- * been evaluated.
+ * The latest review of a project, with each criterion's label and maximum from the brief. Null when
+ * the project isn't the learner's or hasn't been reviewed.
  */
 export async function getMissionEvaluation(userId: string, missionId: string) {
   if (!z.uuid().safeParse(missionId).success) return null;
@@ -184,8 +150,6 @@ export async function getMissionEvaluation(userId: string, missionId: string) {
   if (!row) return null;
 
   const result = row.evaluation.result as SubmissionEvaluationResult;
-  const { skills } = await getTaxonomy();
-  const skillById = new Map(skills.map((s) => [s.id, s]));
   const labelByKey = new Map(row.mission.evaluationCriteria.map((c) => [c.key, c]));
 
   return {
@@ -204,12 +168,6 @@ export async function getMissionEvaluation(userId: string, missionId: string) {
     next: result.recommendedNextStep,
     unseen: result.unseen,
     links: result.links,
-    changes: result.changes.flatMap((change) => {
-      const skill = skillById.get(change.skillId);
-      return skill
-        ? [{ slug: skill.slug, name: skill.name, before: change.before, after: change.after }]
-        : [];
-    }),
   };
 }
 

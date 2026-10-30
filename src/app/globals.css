@@ -513,16 +513,9 @@
     animation-name: reveal-pop;
   }
 
-  /* A meter fills cell by cell, and journal lines append one at a time, like a log. */
-  [data-reveal="out"] [data-reveal-cells] [role="meter"] > *,
+  /* Lines append one at a time, the way an explanation is marked point by point. */
   [data-reveal="out"] [data-reveal-lines] ol > * {
     opacity: 0;
-  }
-
-  [data-reveal="in"] [data-reveal-cells] [role="meter"] > * {
-    animation: reveal-grow 480ms var(--ease-out-expo) both;
-    animation-delay: calc(300ms + var(--cell, 0) * 55ms);
-    transform-origin: bottom;
   }
 
   [data-reveal="in"] [data-reveal-lines] ol > * {

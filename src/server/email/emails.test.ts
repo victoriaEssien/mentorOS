@@ -4,7 +4,7 @@ import { readUnsubscribeToken } from "@/lib/unsubscribe-token";
 import { take } from "@/server/throttle";
 
 import { confirmEmail, resetPasswordEmail, sendLinkEmail } from "./account-emails";
-import { dailyEmail, weeklyProgressEmail, type DailyDigest } from "./engagement-emails";
+import { dailyEmail, weeklyProgressEmail, type DailyDigest, type WeeklyDigest } from "./engagement-emails";
 import { escapeHtml, renderEmail } from "./layout";
 import { sendEmail } from "./send";
 
@@ -128,13 +128,13 @@ describe("sendLinkEmail", () => {
 });
 
 describe("weeklyProgressEmail", () => {
-  const digest = {
-    results: [{ title: "Clean a <messy> sheet", label: "Mission", outcome: "pass" as const }],
-    skills: [{ name: "Lookups", level: "Developing", pieces: 2 }],
-    missions: "5 of 7 handed in, 2 missed",
-    focus: "Join two tables",
-    challenge: null,
-    post: null,
+  const digest: WeeklyDigest = {
+    concepts: [
+      { title: "Idempotency <keys>", verdict: "solid" },
+      { title: "Status codes", verdict: "partly" },
+    ],
+    project: { title: "A rate-limited API", status: "in progress" },
+    theme: "HTTP and APIs",
   };
 
   it("unsubscribes in one click from the weekly topic only", () => {
@@ -150,90 +150,67 @@ describe("weeklyProgressEmail", () => {
     );
   });
 
-  it("doesn't repeat a label the title already starts with", () => {
-    const email = weeklyProgressEmail(
-      learner,
-      {
-        ...digest,
-        results: [{ title: "Diagnostic: Data Analysis", label: "Diagnostic", outcome: "pass" as const }],
-      },
-      "2026-10-19",
-    );
-    expect(email.text).toContain("- Diagnostic: Data Analysis, passed");
-    expect(email.text).not.toContain("Diagnostic: Diagnostic");
-  });
-
-  it("lists the week's results, escaped", () => {
+  it("lists the week's concepts with their verdicts, escaped", () => {
     const email = weeklyProgressEmail(learner, digest, "2026-10-19");
-    expect(email.text).toContain("Mission: Clean a <messy> sheet, passed");
-    expect(email.html).toContain("Clean a &lt;messy&gt; sheet");
-    expect(email.text).toContain("Lookups (now developing)");
-    expect(email.text).toContain("Your focus this week: Join two tables.");
+    expect(email.text).toContain("You explained 2 concepts:");
+    expect(email.text).toContain("Idempotency <keys>, solid");
+    expect(email.text).toContain("Status codes, partly there");
+    expect(email.html).toContain("Idempotency &lt;keys&gt;");
+    expect(email.text).toContain("1 of them come back soon");
   });
 
-  it("carries last week's post, paragraph by paragraph, when there is one", () => {
-    const email = weeklyProgressEmail(
-      learner,
-      {
-        ...digest,
-        post: { linkedin: "Built a rate limiter.\n\nGot the window wrong first.", x: "Rate limiter, done." },
-      },
-      "2026-10-19",
-    );
-    expect(email.text).toContain("Your post for the week");
-    expect(email.text).toContain("Built a rate limiter.");
-    expect(email.text).toContain("Got the window wrong first.");
-    expect(email.text).toContain("Rate limiter, done.");
+  it("says where the project stands and what the theme is", () => {
+    const { text } = weeklyProgressEmail(learner, digest, "2026-10-19");
+    expect(text).toContain("Project: A rate-limited API, in progress.");
+    expect(text).toContain("This week's theme: HTTP and APIs.");
   });
 
-  it("counts the daily missions missed, not only the ones handed in", () => {
-    expect(weeklyProgressEmail(learner, digest, "2026-10-19").text).toContain(
-      "Daily missions: 5 of 7 handed in, 2 missed.",
-    );
+  it("still has something to say after a quiet week", () => {
+    const { text } = weeklyProgressEmail(learner, { concepts: [], project: null, theme: "Databases" }, "2026-10-19");
+    expect(text).toContain("No concepts explained last week.");
+    expect(text).not.toContain("Project:");
   });
 });
 
 describe("dailyEmail", () => {
   const digest: DailyDigest = {
-    point: {
-      headline: "Your mission is still waiting",
-      detail: "Trace a local HTTP endpoint.",
-      action: "Pick it up",
-      path: "/missions/m-1",
-    },
-    yesterday: [{ title: "Daily five", label: "Daily five", outcome: "pass" as const }],
-    daysSinceHandIn: 0,
-    dailyFive: { state: "not-started" },
-    week: { fivesDone: 3, missions: "2 of 3 handed in, 1 missed" },
+    theme: "HTTP and APIs",
+    newConcept: "Idempotency keys",
+    reviewsDue: 2,
+    yesterday: [{ title: "Status codes", verdict: "not_yet" }],
+    daysAway: 1,
+    project: { title: "A rate-limited API", daysLeft: 3 },
   };
 
-  it("leads with today's step and unsubscribes from the daily email only", () => {
+  it("leads with today's concept and unsubscribes from the daily email only", () => {
     const email = dailyEmail(learner, digest, "2026-10-21");
-    expect(email.subject).toBe("Your mission is still waiting");
+    expect(email.subject).toBe("Today's concept: Idempotency keys");
     expect(email.idempotencyKey).toBe("daily/user-1/2026-10-21");
     expect(oneClickToken(email.headers?.["List-Unsubscribe"])).toEqual({
       userId: "user-1",
       topic: "reminders",
     });
-    expect(email.text).toContain("https://mentoros.test/missions/m-1");
+    expect(email.text).toContain("https://mentoros.test/today");
   });
 
-  it("says what was handed in, today's five and the week", () => {
+  it("says how yesterday went, what's due and the project's time left", () => {
     const { text } = dailyEmail(learner, digest, "2026-10-21");
-    expect(text).toContain("Since yesterday you handed in:");
-    expect(text).toContain("Daily five, passed");
-    expect(text).toContain("Today's five: ready when you are.");
-    expect(text).toContain("Last 7 days: 3 daily fives done; daily missions 2 of 3 handed in, 1 missed.");
-    expect(text).not.toContain("at most once a week");
+    expect(text).toContain("Yesterday you explained:");
+    expect(text).toContain("Status codes, not yet");
+    expect(text).toContain("Today, from HTTP and APIs: Idempotency keys (new) and 2 reviews.");
+    expect(text).toContain("Project: A rate-limited API, 3 days left.");
+    expect(text).not.toContain("One email a day");
   });
 
   it("keeps coming after time away, and says how long it's been", () => {
-    const { text } = dailyEmail(
-      learner,
-      { ...digest, yesterday: [], daysSinceHandIn: 9, dailyFive: null },
-      "2026-10-21",
-    );
-    expect(text).toContain("Your last hand-in was 9 days ago.");
-    expect(text).not.toContain("Today's five");
+    const { text } = dailyEmail(learner, { ...digest, yesterday: [], daysAway: 9, project: null }, "2026-10-21");
+    expect(text).toContain("It's been 9 days.");
+    expect(text).not.toContain("Project:");
+  });
+
+  it("names the reviews when there's no new concept left in the theme", () => {
+    const email = dailyEmail(learner, { ...digest, newConcept: null, reviewsDue: 1 }, "2026-10-21");
+    expect(email.subject).toBe("1 review due today");
+    expect(email.text).toContain("Today, from HTTP and APIs: 1 review.");
   });
 });

@@ -3,6 +3,7 @@
 import { APIError } from "better-auth/api";
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 
@@ -13,7 +14,7 @@ import { LINK_EMAILS, linkEmailKey, passwordChangedEmail } from "@/server/email/
 import { setEmailTopic } from "@/server/email/preferences";
 import { sendEmail } from "@/server/email/send";
 import { appUrl } from "@/server/email/urls";
-import { changeSettings } from "@/server/learning/loop";
+import { changeSettings, startOver } from "@/server/learning/loop";
 import { requireLearner } from "@/server/session";
 import { hasRoom, take, type Limit } from "@/server/throttle";
 
@@ -122,4 +123,11 @@ export async function changePasswordAction(current: unknown, next: unknown): Pro
 
   after(() => sendEmail(passwordChangedEmail(user, appUrl("/forgot-password"))));
   return {};
+}
+
+/** Clears their learning and sends them back through onboarding, answers kept. */
+export async function startOverAction(): Promise<void> {
+  const { user } = await requireLearner();
+  await startOver(user.id);
+  redirect("/onboarding");
 }

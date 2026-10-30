@@ -5,7 +5,7 @@ import { mentorTurn } from "@/server/learning/loop";
 import { SlowDownError, ThreadNotFoundError } from "@/server/learning/mentor-chat";
 import { getLearnerProfile } from "@/server/queries/learner";
 
-// A turn can run a tool that writes a check or replans the path: about half a minute each.
+// A turn can run a tool, such as a longer explanation, before it replies.
 export const maxDuration = 120;
 
 /**

@@ -5,7 +5,7 @@ import { Screen } from "@/components/shell/screen";
 import { StatusNotice } from "@/components/system/status-notice";
 import { Button } from "@/components/ui/button";
 
-/** A mission, skill or other record that doesn't exist, or belongs to someone else. Keeps the dock. */
+/** A project, concept or other record that doesn't exist, or belongs to someone else. Keeps the dock. */
 export default function ShellNotFound() {
   return (
     <Screen>

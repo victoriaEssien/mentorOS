@@ -4,93 +4,21 @@ import {
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
-import {
-  createdAt,
-  id,
-  missionCadence,
-  missionStatus,
-  missionType,
-  pathItemStatus,
-  updatedAt,
-} from "./_shared";
+import type { ProjectForm } from "../../lib/themes";
+
+import { createdAt, id, missionCadence, missionStatus, missionType, updatedAt } from "./_shared";
 import { user } from "./auth";
-import { skill } from "./skills";
-
-/**
- * How to study one path step: the ideas to understand, what to read, small exercises before the
- * mission, the usual mistakes, and how to tell it has landed. Written when the step is first
- * opened as the current one.
- */
-export type StudyGuide = {
-  summary: string;
-  learn: { idea: string; why: string }[];
-  read: { title: string; url?: string; kind: string; note?: string }[];
-  practise: string[];
-  pitfalls: string[];
-  checkpoints: string[];
-};
-
-/** A learner's personalised path (PRD §12). Old paths are archived, not edited, so changes are traceable. */
-export const learningPath = pgTable(
-  "learning_path",
-  {
-    id: id(),
-    userId: text()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    focusSummary: text().notNull(),
-    /** What the learner asked for when this path was planned, if they asked for anything. */
-    request: text(),
-    /** Model and prompt version that planned it, for auditability. */
-    model: text(),
-    promptVersion: text(),
-    archivedAt: timestamp({ withTimezone: true }),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    index().on(t.userId),
-    // One active path per learner: of two plans racing, the second fails instead of both standing.
-    uniqueIndex("learning_path_active_index")
-      .on(t.userId)
-      .where(sql`${t.archivedAt} is null`),
-  ],
-);
-
-export const learningPathItem = pgTable(
-  "learning_path_item",
-  {
-    id: id(),
-    pathId: uuid()
-      .notNull()
-      .references(() => learningPath.id, { onDelete: "cascade" }),
-    skillId: uuid().references(() => skill.id, { onDelete: "set null" }),
-    title: text().notNull(),
-    /** "Why are you learning this?" Required by PRD §12 and principle 6. */
-    reason: text().notNull(),
-    order: integer().notNull(),
-    status: pathItemStatus().default("upcoming").notNull(),
-    /** For a deferred item ("not yet"): what has to be true before it unlocks. */
-    unlockWhen: text(),
-    /** How to study this step, written when it's first opened as the current step. */
-    guide: jsonb().$type<StudyGuide>(),
-    /** Model and prompt version that wrote the guide. */
-    guideGeneratedBy: text(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [index().on(t.pathId)],
-);
 
 export type MissionResource = { title: string; url?: string; kind: string; note?: string };
 export type EvaluationCriterion = { key: string; label: string; description: string; maxScore: number };
 
-/** A concrete thing to do (PRD §13, §14). Daily missions and weekly challenges share this table. */
+/** A project: the brief for a theme's build, from the Project Writer. */
 export const mission = pgTable(
   "mission",
   {
@@ -98,9 +26,10 @@ export const mission = pgTable(
     userId: text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    pathItemId: uuid().references(() => learningPathItem.id, { onDelete: "set null" }),
+    /** The theme it belongs to, from src/lib/themes.ts. */
+    themeSlug: text(),
     type: missionType().notNull(),
-    cadence: missionCadence().default("daily").notNull(),
+    cadence: missionCadence().default("weekly").notNull(),
     status: missionStatus().default("assigned").notNull(),
     title: text().notNull(),
     objective: text().notNull(),
@@ -115,7 +44,9 @@ export const mission = pgTable(
     acceptanceCriteria: jsonb().$type<string[]>().default([]).notNull(),
     /** A harder extension for when they finish early. */
     stretchGoal: text(),
-    /** "Your stack: Next.js" or "Exploring: Redis". */
+    /** What it's built as (src/server/learning/project-form.ts); null before forms existed. */
+    form: text().$type<ProjectForm>(),
+    /** "CLI tool, your stack: Node.js" or "Web app, exploring: Svelte". */
     stack: text(),
     evaluationCriteria: jsonb().$type<EvaluationCriterion[]>().default([]).notNull(),
     resources: jsonb().$type<MissionResource[]>().default([]).notNull(),
@@ -129,25 +60,11 @@ export const mission = pgTable(
   },
   (t) => [
     index().on(t.userId, t.status),
-    // One mission in play per learner and cadence: a racing second assignment fails instead of
-    // stacking a second daily mission.
+    // One project in play per learner: a racing second assignment fails instead of stacking.
     uniqueIndex("mission_active_index")
       .on(t.userId, t.cadence)
       .where(sql`${t.status} in ('assigned', 'in_progress', 'submitted')`),
   ],
-);
-
-export const missionSkill = pgTable(
-  "mission_skill",
-  {
-    missionId: uuid()
-      .notNull()
-      .references(() => mission.id, { onDelete: "cascade" }),
-    skillId: uuid()
-      .notNull()
-      .references(() => skill.id, { onDelete: "cascade" }),
-  },
-  (t) => [primaryKey({ columns: [t.missionId, t.skillId] })],
 );
 
 export type SubmissionArtifact = {

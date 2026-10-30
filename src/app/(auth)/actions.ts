@@ -105,7 +105,7 @@ export async function signUpAction(_previous: AuthFormState, formData: FormData)
     return { error: describe(error), values };
   }
 
-  // New learners go straight into onboarding; the diagnostic follows from there.
+  // New learners go straight into onboarding; their first week starts from there.
   redirect("/onboarding");
 }
 

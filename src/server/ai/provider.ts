@@ -7,10 +7,10 @@ import { env } from "@/lib/env";
  * The only place that knows which provider and model ids are in use (PRD §24).
  * Modules ask for a tier, never a model id. To add a provider later, change this file only.
  *
- * - fast:  conversational turns, hints, short generations (mentor chat, tutor)
- * - smart: judging and planning that change learner state (grading, path planning, missions)
- * - deep:  writing assessments. Question design decides what the evidence can show at all, so it
- *          gets the strongest model even where a cheaper one grades just as well.
+ * - fast:  conversational turns and short generations (mentor chat, tutor, review questions,
+ *          follow-up checks)
+ * - smart: writing and judging that change learner state (concepts, grading, projects, reviews)
+ * - deep:  the strongest model, for work where it clearly beats smart. Nothing needs it right now.
  */
 export const models = {
   fast: openai(env.AI_MODEL_FAST),

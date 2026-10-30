@@ -19,7 +19,7 @@ export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
     <>
       <h1 className="text-display">Sign in</h1>
       <p className="mt-2 mb-7 text-callout text-muted-foreground">
-        Your path, missions and evidence are where you left them.
+        Your concepts, reviews and projects are where you left them.
       </p>
       {/* The fallback is the same form, so the request-time part swaps in without a visible change. */}
       <Suspense fallback={<SignInPanel destination="/today" />}>

@@ -1,5 +1,4 @@
 import type { Outcome } from "@/server/learning/difficulty";
-import { abilityBand, confidenceBand } from "@/server/learning/skill-estimate";
 
 /**
  * Everything an AI module is allowed to know about a learner (PRD §21), and how it is written into
@@ -49,7 +48,6 @@ export function missionPoints(
 export type LearnerContext = {
   userId: string;
   name: string;
-  tracks: { slug: string; name: string }[];
   goals: string[];
   background: {
     currentRole: string | null;
@@ -61,22 +59,17 @@ export type LearnerContext = {
     existingProjects: string | null;
   };
   tone: { preference: MentorTone; momentum: Momentum };
-  skills: {
-    skillId: string;
-    slug: string;
-    name: string;
-    ability: number;
-    confidence: number;
-    evidenceCount: number;
-  }[];
-  /** Skills with enough evidence to call them weak (behaviour 11 looks for patterns here). */
-  weakSkills: string[];
-  currentPath: {
-    focusSummary: string;
-    items: { title: string; reason: string; status: string; skill: string | null }[];
+  /** This week's theme, if one is running. */
+  currentTheme: { title: string; week: number; weeks: number } | null;
+  currentProject: {
+    id: string;
+    title: string;
+    stack: string | null;
+    objective: string;
+    status: string;
+    dueAt: string | null;
   } | null;
-  currentMission: { id: string; title: string; type: string; objective: string; status: string } | null;
-  recentMissions: {
+  recentProjects: {
     title: string;
     outcome: Outcome | null;
     /** Why it has no outcome: skipped, or ran out of time before it was handed in. */
@@ -85,14 +78,11 @@ export type LearnerContext = {
     /** Where the marks went in its latest evaluation, so "why did I get 16/40?" has an answer. */
     points: MissionPoints | null;
   }[];
-  recentAssessments: { title: string; kind: string; score: number | null; completedAt: string | null }[];
-  /** Weaknesses and misconceptions from recent evaluations, newest first. */
+  /** Recent concept explanations, newest first: the verdict, or that it wasn't explained. */
+  recentConcepts: { title: string; day: string; verdict: "solid" | "partly" | "not_yet" | null }[];
+  /** Weaknesses from project reviews and points got wrong in concept explanations, newest first. */
   recentMistakes: string[];
 };
-
-/** A skill is called weak once there is enough evidence to stand behind a low estimate. */
-export const WEAK_ABILITY = 0.45;
-export const WEAK_MIN_CONFIDENCE = 0.4;
 
 /**
  * Recent form, from the latest outcomes (most recent first). Shapes delivery only:
@@ -131,10 +121,7 @@ const MOMENTUM_GUIDANCE: Record<Momentum, string | null> = {
   cruising: "They are cruising: push harder and raise the bar.",
 };
 
-const LIMITS = { skills: 30, missions: 5, assessments: 5, mistakes: 8 };
-
-// Floored, so a percentage never reads as a higher band than the estimate is in (54.9% is "developing").
-const percent = (value: number) => `${Math.floor(value * 100)}%`;
+const LIMITS = { projects: 5, concepts: 7, mistakes: 8 };
 
 /** Compact text rendering of the context for prompts. Bounded lists keep token use predictable. */
 export function renderLearnerContext(context: LearnerContext): string {
@@ -143,7 +130,6 @@ export function renderLearnerContext(context: LearnerContext): string {
 
   lines.push("LEARNER");
   lines.push(`Name: ${context.name}`);
-  lines.push(`Tracks: ${context.tracks.map((track) => track.name).join(", ") || "none chosen"}`);
   if (context.goals.length > 0) lines.push(`Goals: ${context.goals.join("; ")}`);
 
   const facts = [
@@ -153,7 +139,7 @@ export function renderLearnerContext(context: LearnerContext): string {
     background.weeklyLearningHours !== null && `about ${background.weeklyLearningHours} hours a week`,
     background.learningStyle && `prefers: ${background.learningStyle}`,
   ].filter(Boolean);
-  if (facts.length > 0) lines.push(`Background (self-reported, not evidence): ${facts.join("; ")}`);
+  if (facts.length > 0) lines.push(`Background (self-reported): ${facts.join("; ")}`);
   if (background.previousLearning) lines.push(`Previous learning: ${background.previousLearning}`);
   if (background.existingProjects) lines.push(`Existing projects: ${background.existingProjects}`);
 
@@ -161,70 +147,54 @@ export function renderLearnerContext(context: LearnerContext): string {
   lines.push(`TONE: ${context.tone.preference}. ${TONE_GUIDANCE[context.tone.preference]}`);
   const momentum = MOMENTUM_GUIDANCE[context.tone.momentum];
   if (momentum) lines.push(momentum);
-  lines.push("Tone never changes scores, verdicts or whether they are ready for something.");
+  lines.push("Tone never changes scores or verdicts.");
 
   lines.push("");
-  if (context.skills.length === 0) {
-    lines.push("SKILLS: no evidence yet.");
-  } else {
-    lines.push("SKILLS (slug: ability, confidence, pieces of evidence)");
-    for (const skill of context.skills.slice(0, LIMITS.skills)) {
-      lines.push(
-        `- ${skill.slug} (${skill.name}): ${percent(skill.ability)} ${abilityBand(skill.ability)}, ` +
-          `${confidenceBand(skill.confidence)} confidence, ${skill.evidenceCount}`,
-      );
-    }
-    if (context.skills.length > LIMITS.skills) {
-      lines.push(`- and ${context.skills.length - LIMITS.skills} more`);
-    }
+  if (context.currentTheme) {
+    const theme = context.currentTheme;
+    lines.push(`THIS WEEK'S THEME: ${theme.title} (week ${theme.week} of ${theme.weeks})`);
   }
-  if (context.weakSkills.length > 0) lines.push(`Demonstrated weak spots: ${context.weakSkills.join(", ")}`);
-
-  lines.push("");
-  if (context.currentPath) {
-    lines.push(`CURRENT PATH: ${context.currentPath.focusSummary}`);
-    context.currentPath.items.forEach((item, index) => {
-      lines.push(
-        `${index + 1}. [${item.status}] ${item.title}${item.skill ? ` (${item.skill})` : ""}: ${item.reason}`,
-      );
-    });
-  } else {
-    lines.push("CURRENT PATH: none yet.");
-  }
-
-  if (context.currentMission) {
-    const mission = context.currentMission;
-    lines.push("");
+  if (context.currentProject) {
+    const project = context.currentProject;
+    const due = project.dueAt ? `, due ${project.dueAt.slice(0, 10)}` : "";
+    const stack = project.stack ? ` [${project.stack}]` : "";
     lines.push(
-      `CURRENT MISSION (${mission.status}): ${mission.title} [${mission.type}]. ${mission.objective}`,
+      `CURRENT PROJECT (${project.status.replace("_", " ")}${due}): ${project.title}${stack}. ${project.objective}`,
     );
+  } else {
+    lines.push("CURRENT PROJECT: none right now.");
   }
 
-  if (context.recentMissions.length > 0) {
+  if (context.recentProjects.length > 0) {
     lines.push("");
-    lines.push("RECENT MISSIONS");
-    for (const mission of context.recentMissions.slice(0, LIMITS.missions)) {
-      const points = mission.points
-        ? `, ${mission.points.scored}/${mission.points.available} (${mission.points.criteria
+    lines.push("RECENT PROJECTS");
+    for (const project of context.recentProjects.slice(0, LIMITS.projects)) {
+      const points = project.points
+        ? `, ${project.points.scored}/${project.points.available} (${project.points.criteria
             .map((criterion) => `${criterion.key} ${criterion.score}/${criterion.max}`)
             .join(", ")})`
         : "";
       const ended =
-        mission.ended === "expired"
+        project.ended === "expired"
           ? "missed, ran out of time before it was handed in"
-          : mission.ended === "skipped"
+          : project.ended === "skipped"
             ? "skipped"
             : "not evaluated";
-      lines.push(`- ${mission.title}: ${mission.outcome ?? ended}${points}`);
+      lines.push(`- ${project.title}: ${project.outcome ?? ended}${points}`);
     }
   }
 
-  if (context.recentAssessments.length > 0) {
+  if (context.recentConcepts.length > 0) {
     lines.push("");
-    lines.push("RECENT ASSESSMENTS");
-    for (const assessment of context.recentAssessments.slice(0, LIMITS.assessments)) {
-      const score = assessment.score === null ? "not graded" : percent(assessment.score);
-      lines.push(`- ${assessment.title} (${assessment.kind}): ${score}`);
+    lines.push("RECENT CONCEPTS (researched and explained back)");
+    for (const concept of context.recentConcepts.slice(0, LIMITS.concepts)) {
+      const verdict =
+        concept.verdict === "not_yet"
+          ? "not yet"
+          : concept.verdict === "partly"
+            ? "partly there"
+            : concept.verdict;
+      lines.push(`- ${concept.day} ${concept.title}: ${verdict ?? "not explained"}`);
     }
   }
 

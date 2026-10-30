@@ -2,10 +2,9 @@ import "server-only";
 import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { evaluation, mission, missionSkill, missionSubmission, skill } from "@/db/schema";
+import { evaluation, mission, missionSubmission } from "@/db/schema";
 import type { Reflection } from "@/db/schema/learning";
 import { parseGithubLink } from "@/lib/github-links";
-import { toEvidenceRows } from "@/server/ai/modules/skill-profile-updater";
 import {
   applyCorrections,
   checkEvaluation,
@@ -20,11 +19,20 @@ import {
 import type { SubmissionEvaluation } from "@/server/ai/schemas";
 
 import { readArtifacts } from "./artifacts";
-import type { SkillChange } from "./evidence";
-import { demonstratedAbility, GRADING_VERSION, verdictFor, type Verdict } from "./grading";
 import { expireOverdueMissions, MissionNotFoundError } from "./missions";
-import { completePathStep } from "./path";
-import { prepareEvidence } from "./profile";
+
+/** Bump when the scoring below changes, so stored evaluations stay traceable. */
+export const GRADING_VERSION = "g4";
+
+export type Verdict = "strong" | "pass" | "partial" | "fail";
+
+/** How good the work was, from its share of the points: 0.7 and up means the core is right. */
+export function verdictFor(score: number): Verdict {
+  if (score >= 0.85) return "strong";
+  if (score >= 0.7) return "pass";
+  if (score >= 0.3) return "partial";
+  return "fail";
+}
 
 /** Already handed in, evaluated or skipped. */
 export class MissionClosedError extends Error {
@@ -58,7 +66,6 @@ export type SubmissionEvaluationResult = SubmissionEvaluation & {
   gradingVersion: string;
   /** Points scored over points available, 0 to 1. */
   score: number;
-  changes: SkillChange[];
   /** What was read from each link, or why it couldn't be. */
   links: { url: string; files: string[]; note: string | null }[];
   /**
@@ -69,17 +76,17 @@ export type SubmissionEvaluationResult = SubmissionEvaluation & {
 };
 
 /**
- * Hands in work for a mission and evaluates it (PRD §15, §16, §20). The mission is claimed first,
- * so a double submit can't evaluate twice. The evaluation, its evidence, the mission's new state
- * and any path progress then commit together. If evaluating fails, the mission goes back to "in
- * progress" so the learner can hand in again; the submission itself stays on record.
+ * Hands in a project and reviews it against the brief. The project is claimed first, so a double
+ * submit can't evaluate twice. The evaluation and the project's new state then commit together.
+ * If reviewing fails, the project goes back to "in progress" so the learner can hand in again;
+ * the submission itself stays on record.
  */
 export async function submitWork(
   userId: string,
   missionId: string,
   input: WorkInput,
   now: Date = new Date(),
-): Promise<{ submissionId: string; evaluationId: string; outcome: Verdict; pathFinished: boolean }> {
+): Promise<{ submissionId: string; evaluationId: string; outcome: Verdict }> {
   const [claimed] = await db
     .update(mission)
     .set({ status: "submitted" })
@@ -118,14 +125,7 @@ export async function submitWork(
       submittedAt: now,
     });
 
-    const [skills, links] = await Promise.all([
-      db
-        .select({ id: skill.id, slug: skill.slug, name: skill.name })
-        .from(missionSkill)
-        .innerJoin(skill, eq(skill.id, missionSkill.skillId))
-        .where(eq(missionSkill.missionId, missionId)),
-      readArtifacts(input.links),
-    ]);
+    const links = await readArtifacts(input.links);
 
     const evaluatedMission: EvaluatedMission = {
       title: claimed.title,
@@ -136,7 +136,7 @@ export async function submitWork(
       instructions: claimed.instructions,
       acceptanceCriteria: claimed.acceptanceCriteria,
       criteria: claimed.evaluationCriteria,
-      skills: skills.map((s) => ({ slug: s.slug, name: s.name })),
+      skills: [],
     };
     const work: EvaluatedWork = {
       content: input.content,
@@ -152,33 +152,10 @@ export async function submitWork(
     const score = available > 0 ? graded.criteria.reduce((sum, c) => sum + c.score, 0) / available : 0;
     const outcome = verdictFor(score);
 
-    // A weekly challenge is a project: stronger evidence than a daily mission (PRD §19).
-    const evidence = toEvidenceRows({
-      source: {
-        userId,
-        sourceType: claimed.cadence === "weekly" ? "project" : "mission",
-        sourceId: submissionId,
-      },
-      judgements: graded.skills.map((judgement) => ({
-        ...judgement,
-        score: demonstratedAbility(claimed.difficulty ?? 3, judgement.score),
-        confidence: Math.min(0.95, Math.max(0.2, judgement.confidence)),
-      })),
-      skillIdBySlug: new Map(skills.map((s) => [s.slug, s.id])),
-    }).rows;
-
-    const [{ changes, statements }, progress] = await Promise.all([
-      prepareEvidence(userId, evidence, now),
-      outcome === "strong" || outcome === "pass"
-        ? completePathStep(claimed.pathItemId)
-        : Promise.resolve({ statements: [], finished: false }),
-    ]);
-
     const result: SubmissionEvaluationResult = {
       ...graded,
       gradingVersion: GRADING_VERSION,
       score: Math.round(score * 1000) / 1000,
-      changes,
       links: links.map((link) => ({ url: link.url, files: link.files.map((f) => f.path), note: link.note })),
       secondLook,
     };
@@ -196,8 +173,6 @@ export async function submitWork(
         createdAt: now,
       }),
       db.update(mission).set({ status: "evaluated" }).where(eq(mission.id, missionId)),
-      ...statements,
-      ...progress.statements,
     ]);
 
     console.info(
@@ -207,10 +182,9 @@ export async function submitWork(
         outcome,
         score: result.score,
         linksRead: links.filter((l) => l.files.length > 0).length,
-        pathFinished: progress.finished,
       }),
     );
-    return { submissionId, evaluationId, outcome, pathFinished: progress.finished };
+    return { submissionId, evaluationId, outcome };
   } catch (error) {
     await db
       .update(mission)

@@ -1,14 +1,10 @@
 import { index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { createdAt, evaluationOutcome, id } from "./_shared";
-import { assessmentAttempt } from "./assessments";
 import { user } from "./auth";
 import { missionSubmission } from "./learning";
 
-/**
- * AI-generated evaluation of a submission or assessment attempt (PRD §16, §25).
- * `result` holds the validated structured output; skill_evidence rows are derived from it.
- */
+/** The review of a project hand-in. `result` holds the validated structured output. */
 export const evaluation = pgTable(
   "evaluation",
   {
@@ -17,7 +13,6 @@ export const evaluation = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     submissionId: uuid().references(() => missionSubmission.id, { onDelete: "cascade" }),
-    attemptId: uuid().references(() => assessmentAttempt.id, { onDelete: "cascade" }),
     outcome: evaluationOutcome().notNull(),
     result: jsonb().notNull(),
     model: text().notNull(),
@@ -26,10 +21,7 @@ export const evaluation = pgTable(
   },
   (t) => [
     index().on(t.userId),
-    // One evaluation per submission, for the same reason as per attempt.
+    // One review per submission: a second hand-in of the same submission fails its write.
     uniqueIndex().on(t.submissionId),
-    // One evaluation per attempt: a second hand-in of the same attempt fails its write
-    // transaction instead of doubling the evidence.
-    uniqueIndex().on(t.attemptId),
   ],
 );

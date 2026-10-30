@@ -5,7 +5,7 @@ import { Screen } from "./screen";
 /**
  * Loading state for a tab: the real title renders immediately (it is known before any data),
  * with placeholder blocks in the shape of the screen below it. Screens titled by their data
- * (a skill's name) leave the title out and get a placeholder bar instead.
+ * (a project's title) leave the title out and get a placeholder bar instead.
  */
 export function ScreenSkeleton({
   title,

@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ProjectForm } from "@/lib/themes";
+
 import { renderLearnerContext, type LearnerContext } from "../context";
 import { generateStructured, type GenerationMeta } from "../generate";
 import type { Effort } from "../provider";
@@ -7,77 +9,80 @@ import { generatedMissionSchema, type GeneratedMission } from "../schemas";
 import { sanitizeMission } from "./mission-sanitize";
 
 /**
- * Mission Generator
+ * Project Writer (the mission generator)
  *
- * Writes one practical mission or weekly challenge (PRD §13, §14, §19) for the learner's current
- * path item, at a difficulty decided in code (src/server/learning/difficulty.ts). Prefers build,
- * debug and design over reading. Weekly challenges can combine skills across tracks
- * (behaviour 12). Does not write to the database.
+ * Writes the project for the learner's current theme: something real to build around the theme's
+ * concepts, in a stack decided in code (src/server/learning/mission-stack.ts), at a difficulty
+ * decided in code (src/server/learning/difficulty.ts), sized to the theme's weeks. Does not write to
+ * the database.
  */
 
-export const PROMPT_VERSION = "v4";
+export const PROMPT_VERSION = "v11";
 
 const SYSTEM_PROMPT = `
-You write missions for mentorOS, an AI-managed technical apprenticeship. A mission is one concrete
-thing to do that produces evidence of a skill: something built, fixed, designed, analysed or
-explained. Missions replace lessons; never "read chapter 4".
+You write the project for this week's theme, for a software engineer who learns by building and
+looking things up when stuck, working toward the bar at top companies. They research a concept a day
+from the theme; the project is where they put them together. They build it their own way, share the
+repo, and report back. It has to be worth showing off.
 
-Write one mission:
-- It practises the path item's skill at the given difficulty: 1 is guided and small, 3 is a
-  realistic task with some judgement, 5 is an open problem they haven't seen. The mode says how to
-  pitch it: advance (stretch them), consolidate (same level, new angle), remediate (back to
-  fundamentals, smaller steps).
-- Prefer build, debug, design, analyze or explain over learn or research. Even a learn mission ends
-  in something they produce.
-- Keep it small enough to finish. A daily mission fits in 30 to 90 minutes: 3 to 6 steps, one
-  deliverable, and an explanation of 80 to 150 words. A weekly challenge takes 3 to 6 hours: up to
-  10 steps, combining several skills, across their tracks when that makes a better project. Pitch
-  depth through the difficulty, never by adding steps or files.
-- They work on a laptop and hand in a link (repository, gist, deployed URL) or a written
-  explanation, so the deliverable must be checkable from that. Say exactly what to hand in, and
-  always ask for a short explanation of their reasoning alongside it.
+Write one project:
+- Build the kind of project the theme names, around its concepts. Something real people would
+  want, not a tutorial clone.
+- The form is decided for you. Shape the theme's project into it, keeping its concepts at the centre
+  (for a CLI the same concerns show up as commands, flags and output; for a library, as its public
+  API). What done means for each form:
+  - web app: runs locally with one command, deployed if the stack makes that easy.
+  - backend service: an HTTP or gRPC service with a README showing how to call it.
+  - CLI tool: installable (npx, pipx, go install or a binary), --help, clear errors, sensible exit
+    codes, and it works in a pipe.
+  - library: a small typed public API, docs with examples, tests, and ready to publish to npm or
+    PyPI.
+  - browser extension: Chrome Manifest V3 with the fewest permissions it needs, loadable unpacked.
+  - mobile app: React Native with Expo unless their stack names another mobile framework, running
+    in Expo Go or a simulator.
+- It runs as long as the theme: durationWeeks is the number of weeks given. Size it to the hours a
+  week they told you, less about half an hour a day for the daily concept, but never under about two
+  hours a week: with little time, make it small and complete rather than big and half done. With no
+  hours given, a week is about 6 to 10 hours of evenings. estimatedMinutes is the total effort, and
+  it has to be honest: walk through the work each acceptance criterion takes and add it up. If that
+  doesn't fit their hours, cut criteria (move the extra into stretchGoal) rather than understate
+  the time.
+- Pitch it at the difficulty given: 1 is guided and small, 3 is a realistic build with judgement
+  calls, 5 is open-ended. The mode says how: advance (stretch them), consolidate (same level, new
+  angle), remediate (smaller and more guided).
+- The stack is decided for you. "Their stack" means build it with those technologies at production
+  depth: real failure modes, edge cases, performance and tests, the parts tutorials skip. "Explore"
+  means build it with the one candidate that best fits, and say in the reason why that tool suits
+  this job. technology names what it's built with. When the theme's project compares two tools
+  (the same app in two frameworks), one is the stack you were given and you pick the other: one
+  whose model differs most from it and that they don't already use. Name both in technology.
+- Lean on the theme's concepts and name the ones it needs in requiredKnowledge.
 - Detailed, never spoon-fed. scenario sets a realistic situation in two or three sentences: who
   needs this, what's missing or broken, and the constraint that makes it interesting.
   acceptanceCriteria are 3 to 7 checkable statements of done (behaviour, the edge cases handled, a
-  performance or reliability target, the tests that must exist); the evaluation checks each one.
+  performance or reliability target, the tests that must exist); the review checks each one.
   stretchGoal is one harder extension, or null.
-- instructions: numbered steps, one per line, each one or two sentences, specific enough to start
-  without asking anything. Steps say what to achieve, in what order, and which decisions they have
-  to make; never the code to write. Name versions and tools concretely.
-- The stack is decided for you. "Their stack" means build it with those technologies at production
-  depth: real failure modes, edge cases, performance and tests, the parts tutorials skip. "Explore"
-  means build it with the one candidate that best fits the skill, and say in the reason why that
-  tool suits this job. technology names what it's built with.
-- requiredKnowledge: what they need to know first, as short phrases.
-- evaluationCriteria: 3 to 5 criteria, each out of 10, with what full marks looks like. One of them
-  scores the explanation of their reasoning.
-- resources: at most three, only what this mission needs. The first explains the idea the mission
-  practises (for HTTP, an overview of requests and responses), so a learner new to it knows what to
-  read first; the rest are references for the tools they'll use. Use only official documentation or
-  well-known references you are sure exist (MDN, the PostgreSQL docs, the Python docs, OWASP).
-  Set url to null if you aren't sure of the exact address.
-- reason: one or two sentences, as "you": why this mission now. Use the path item's reason and the
-  evidence, and say how the difficulty was chosen.
-- skills: slugs from the allowed list only; the first is the path item's skill. A side skill (from
-  a track they aren't studying, such as security or UI) may be listed only when the mission
-  genuinely exercises it, like hashing passwords in an auth mission. Never build a mission around
-  one.
-- Don't repeat a recent mission. Follow the tone guidance for wording only. No em dashes.
+- instructions: numbered milestones, one per line, each one or two sentences, in the order to
+  build them, saying what to achieve and which decisions they must make; never the code to write.
+  Name versions and tools concretely.
+- deliverable: a public repository link with a README (what it does, how to run it, the decisions
+  they made), plus a short report of what they learned and got wrong.
+- evaluationCriteria: 3 to 5 criteria, each out of 10, with what full marks looks like. One scores
+  the README and their reasoning.
+- resources: at most three, only official docs or references you're sure exist. Set url to null if
+  you aren't sure of the exact address.
+- reason: one or two sentences, as "you": why this project now, and why this size.
+- Don't repeat a recent project. Follow the tone guidance for wording only. No em dashes.
 `.trim();
 
 export type GenerateMissionInput = {
   context: LearnerContext;
-  cadence: "daily" | "weekly";
-  pathItem: { title: string; reason: string; skill: string | null };
+  theme: { title: string; summary: string; project: string; concepts: string[]; weeks: number };
   difficulty: { level: number; mode: "advance" | "consolidate" | "remediate"; reason: string };
-  /** Skills the mission may list (slug: name). */
-  allowedSkills: { slug: string; name: string }[];
   /** Their own stack to go deeper in, or new tools to explore (decided in mission-stack.ts). */
   stack: { mode: "home"; technologies: string[] } | { mode: "explore"; candidates: string[] };
-  /** Skills from shelved tracks, listed only when the mission genuinely needs one (slug: name). */
-  sideSkills: { slug: string; name: string }[];
-  /** Recent missions on the same skill, so it doesn't repeat itself. */
-  recentMissions: { title: string; outcome: string | null }[];
+  /** What it's built as (decided in project-form.ts). */
+  form: ProjectForm;
   effort?: Effort;
   abortSignal?: AbortSignal;
 };
@@ -85,35 +90,21 @@ export type GenerateMissionInput = {
 export async function generateMission(
   input: GenerateMissionInput,
 ): Promise<{ mission: GeneratedMission; meta: GenerationMeta }> {
-  const { pathItem, difficulty } = input;
+  const { difficulty } = input;
 
   const prompt = [
     renderLearnerContext(input.context),
     "",
-    "MISSION TO WRITE",
-    `Cadence: ${input.cadence}.`,
-    `Path item: "${pathItem.title}"${pathItem.skill ? ` (skill: ${pathItem.skill})` : ""}. Why it's on the path: ${pathItem.reason}`,
+    "PROJECT TO WRITE",
+    `Theme: ${input.theme.title}. ${input.theme.summary}`,
+    `The project should be: ${input.theme.project}.`,
+    `Its concepts: ${input.theme.concepts.join("; ")}.`,
+    `Weeks: ${input.theme.weeks}.`,
+    `Form: build it as a ${input.form}.`,
     `Difficulty: ${difficulty.level} of 5, mode ${difficulty.mode}. ${difficulty.reason}`,
     input.stack.mode === "home"
       ? `Stack: their stack, go deeper in it. Their technologies: ${input.stack.technologies.join(", ")}.`
-      : `Stack: explore. Pick the one candidate that best fits the skill: ${input.stack.candidates.join("; ")}.`,
-    "",
-    "SKILLS YOU MAY LIST (slug: name)",
-    ...input.allowedSkills.map((skill) => `- ${skill.slug}: ${skill.name}`),
-    ...(input.sideSkills.length > 0
-      ? [
-          "",
-          "SIDE SKILLS (only when the mission genuinely needs one)",
-          ...input.sideSkills.map((skill) => `- ${skill.slug}: ${skill.name}`),
-        ]
-      : []),
-    ...(input.recentMissions.length > 0
-      ? [
-          "",
-          "RECENT MISSIONS ON THIS SKILL (don't repeat them)",
-          ...input.recentMissions.map((m) => `- ${m.title}: ${m.outcome ?? "not evaluated"}`),
-        ]
-      : []),
+      : `Stack: explore. Pick the one candidate that fits best: ${input.stack.candidates.join("; ")}.`,
   ].join("\n");
 
   const { output, meta } = await generateStructured({
@@ -124,18 +115,13 @@ export async function generateMission(
     instructions: SYSTEM_PROMPT,
     prompt,
     schema: generatedMissionSchema,
-    schemaName: "Mission",
-    schemaDescription: "One practical mission with instructions, a deliverable and scoring criteria.",
-    // About 1,900 tokens for a weekly challenge.
+    schemaName: "Project",
+    schemaDescription: "One project brief with milestones, a deliverable and review criteria.",
+    // About 2,000 tokens for a project brief.
     maxOutputTokens: 6_000,
     timeoutMs: 120_000,
     abortSignal: input.abortSignal,
   });
 
-  const mission = sanitizeMission(output, {
-    cadence: input.cadence,
-    focusSkill: pathItem.skill,
-    allowedSkills: new Set([...input.allowedSkills, ...input.sideSkills].map((skill) => skill.slug)),
-  });
-  return { mission, meta };
+  return { mission: sanitizeMission({ ...output, durationWeeks: input.theme.weeks }), meta };
 }

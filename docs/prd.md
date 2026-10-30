@@ -7,6 +7,8 @@
 | **Product Type** | AI-powered adaptive technical learning platform |
 | **Primary Goal** | Help users become technically stronger through personalized assessment, practice, projects, and continuous evaluation. |
 
+> **Superseded in part, 30 October 2026.** The learning model is now weekly themes chosen by the app, a concept a day explained in writing and graded against a stored checklist, spaced reviews, and a project per theme. Learning tracks, assessments, skill levels, mastery percentages, readiness gates and surprise tests described below were removed, and data structures and algorithms are out of scope. See [architecture.md](architecture.md) for what the code does now.
+
 ---
 
 ## Table of Contents

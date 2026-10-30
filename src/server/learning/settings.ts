@@ -12,10 +12,7 @@ export type LearnerSettings = {
   mentorTone: "direct" | "balanced" | "supportive";
 };
 
-/**
- * Changes what the learner told us at onboarding, one setting or several at a time. Tracks aren't
- * among them: every learner learns the same active tracks.
- */
+/** Changes what the learner told us at onboarding, one setting or several at a time. */
 export async function updateLearnerSettings(
   userId: string,
   changes: Partial<LearnerSettings>,

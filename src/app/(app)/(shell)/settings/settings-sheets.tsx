@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, RotateCcw } from "lucide-react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,18 @@ import { toast } from "sonner";
 import { ChoiceGroup } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { FormNotice } from "@/components/form/form-notice";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -31,6 +43,7 @@ import {
   saveNameAction,
   saveSettingsAction,
   sendConfirmationAction,
+  startOverAction,
   type SaveState,
 } from "./actions";
 
@@ -451,5 +464,53 @@ function EmailSwitch({
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Starting over from the first theme. The confirmation says exactly what goes, and stays open
+ * while it happens; then onboarding takes over.
+ */
+export function StartOverSetting() {
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+      <AlertDialogTrigger asChild>
+        <button type="button" className={ROW}>
+          <span className="shrink-0 text-body text-fail">Start over</span>
+          <span className="ml-auto min-w-0 truncate text-callout text-muted-foreground">From the first theme</span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogMedia>
+            <RotateCcw aria-hidden />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Start over from the first theme?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This deletes every explanation, review, project, post and mentor chat, then takes you back through
+            onboarding with your answers filled in. Your account and email settings stay. You can&apos;t undo
+            it.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Keep everything</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              startTransition(async () => {
+                await startOverAction();
+              });
+            }}
+          >
+            {pending ? "Deleting" : "Delete and start over"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

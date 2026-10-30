@@ -13,6 +13,7 @@ import {
   LearningStyleSetting,
   NameSetting,
   PasswordSetting,
+  StartOverSetting,
   ToneSetting,
   WeeklyTimeSetting,
 } from "./settings-sheets";
@@ -21,7 +22,7 @@ export const metadata: Metadata = { title: "Settings" };
 
 const GROUP = "divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-window";
 
-/** Settings (PRD §8): what onboarding asked, changeable one row at a time. Tracks are fixed. */
+/** Settings (PRD §8): what onboarding asked, changeable one row at a time. */
 export default async function SettingsPage() {
   const { user, profile } = await requireLearner();
   const [withPassword, emails] = await Promise.all([hasPassword(user.id), getEmailSettings(user.id)]);
@@ -64,6 +65,16 @@ export default async function SettingsPage() {
           {user.emailVerified
             ? "Emails about your account, like a password reset, always come."
             : "These start once your email is confirmed. Emails about your account always come."}
+        </p>
+      </ScreenSection>
+
+      <ScreenSection>
+        <div className={GROUP}>
+          <StartOverSetting />
+        </div>
+        <p className="mt-2.5 text-footnote text-muted-foreground">
+          Clears everything you&apos;ve learned and built here and starts you again from the first theme. Your
+          account stays.
         </p>
       </ScreenSection>
 

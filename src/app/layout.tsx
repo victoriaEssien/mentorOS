@@ -23,7 +23,7 @@ const firaCode = Fira_Code({
 export const metadata: Metadata = {
   title: { default: "mentorOS", template: "%s · mentorOS" },
   description:
-    "A technical mentor that figures out what you know, what you don't, and what you should do next.",
+    "A technical mentor: a theme a week, a concept a day to explain in your own words, and a project to build.",
   applicationName: "mentorOS",
   appleWebApp: { capable: true, title: "mentorOS", statusBarStyle: "default" },
   formatDetection: { telephone: false },

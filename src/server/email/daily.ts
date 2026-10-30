@@ -2,17 +2,14 @@ import "server-only";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { weeklyPostDraft } from "@/server/learning/loop";
-import { NothingToPostError } from "@/server/learning/weekly-post";
 import { getDailyDigest, getWeeklyDigest } from "@/server/queries/emails";
-import { getWeekPost } from "@/server/queries/posts";
 
 import { dailyEmail, weeklyProgressEmail } from "./engagement-emails";
 import { sendEmail, type SendResult } from "./send";
 
 /**
- * The once-a-day job (Vercel Cron, see vercel.json). On Mondays: weekly progress for anyone whose
- * work produced evidence in the last seven days. Every day: the daily email for everyone else who
+ * The once-a-day job (Vercel Cron, see vercel.json). On Mondays: weekly progress for anyone who
+ * explained a concept or handed in a project in the last seven days. Every day: the daily email for everyone else who
  * has it on, whether they were busy yesterday or away for a month. Rules that keep it sane:
  *
  * - only confirmed addresses, and only the topics they haven't turned off;
@@ -50,8 +47,7 @@ export async function runDailyEmails(now: Date = new Date()): Promise<DailySumma
     await eachInTurn(learners, async (learner) => {
       if (!(await claimWeekly(learner.id, now))) return;
       budget--;
-      await ensureLastWeeksPost(learner.id, since);
-      const digest = await getWeeklyDigest(learner.id, since);
+      const digest = await getWeeklyDigest(learner.id, since, now);
       count(await sendEmail(weeklyProgressEmail(recipient(learner), digest, weekKey)), "weekly");
     });
   }
@@ -94,9 +90,15 @@ async function weeklyCandidates(now: Date, limit: number): Promise<Learner[]> {
     where u.email_verified
       and coalesce(es.weekly_progress, true)
       and (es.last_weekly_at is null or es.last_weekly_at < ${new Date(now.getTime() - ONCE_A_WEEK_MS)}::timestamptz)
-      and exists (
-        select 1 from skill_evidence se
-        where se.user_id = u.id and se.created_at >= ${new Date(now.getTime() - 7 * DAY_MS)}::timestamptz
+      and (
+        exists (
+          select 1 from concept_attempt ca
+          where ca.user_id = u.id and ca.explained_at >= ${new Date(now.getTime() - 7 * DAY_MS)}::timestamptz
+        )
+        or exists (
+          select 1 from mission_submission ms
+          where ms.user_id = u.id and ms.submitted_at >= ${new Date(now.getTime() - 7 * DAY_MS)}::timestamptz
+        )
       )
     order by es.last_weekly_at asc nulls first
     limit ${limit}
@@ -143,21 +145,4 @@ async function claimDaily(userId: string, now: Date): Promise<boolean> {
     returning user_id
   `);
   return rows.length > 0;
-}
-
-/**
- * Drafts last week's post for the Monday email if the learner didn't, when there's anything to
- * post about. A failure only leaves the post out of the email.
- */
-async function ensureLastWeeksPost(userId: string, since: Date) {
-  const weekStart = since.toISOString().slice(0, 10);
-  const { draft, handedIn } = await getWeekPost(userId, weekStart);
-  if (draft || handedIn === 0) return;
-  try {
-    await weeklyPostDraft(userId, weekStart);
-  } catch (error) {
-    if (!(error instanceof NothingToPostError)) {
-      console.error(JSON.stringify({ event: "post.weekly_failed", reason: String(error) }));
-    }
-  }
 }

@@ -37,14 +37,6 @@ const serverSchema = z.object({
   // Vercel Cron sends this as a bearer token; the daily job refuses any request without it.
   CRON_SECRET: z.string().optional(),
 
-  // Running learner code (Vercel Sandbox). The snapshot holds the toolchains; build it with
-  // scripts/build-runner-snapshot.ts. On Vercel the sandbox authenticates with the deployment's
-  // OIDC token; locally it needs a personal token and the team and project ids.
-  CODE_RUNNER_SNAPSHOT_ID: z.string().optional(),
-  VERCEL_TOKEN: z.string().optional(),
-  VERCEL_TEAM_ID: z.string().optional(),
-  VERCEL_PROJECT_ID: z.string().optional(),
-
   // Observability
   SENTRY_DSN: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),

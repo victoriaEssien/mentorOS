@@ -2,6 +2,8 @@
 
 Companion to [prd.md](prd.md). The PRD describes the product; this describes what the mentor actually does to the learner. When a design decision is unclear, check it against this document.
 
+**Since 30 October 2026** the learning model is weekly themes, a concept a day and a project per theme ([architecture.md](architecture.md)). The spirit below still holds: the app decides what comes next, grades honestly and checks back. Assessments, skill levels, surprise tests and hints are gone; reviews of shaky concepts, asked a new way, do the checking back.
+
 > The mentor is a system that continuously assesses you, figures out your weaknesses, gives you things to learn and build, evaluates what you produce, deliberately tests whether you actually retained it, updates its understanding of your abilities, and then decides what you should tackle next.
 >
 > The chatbot is just the interface. The product is not "AI teaches me programming", it is "AI manages my technical apprenticeship".

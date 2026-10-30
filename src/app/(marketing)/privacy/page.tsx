@@ -41,13 +41,13 @@ const sections: LegalSection[] = [
           you know, how much time you have each week, and how you like to learn and be spoken to.
         </li>
         <li>
-          <strong>Your work.</strong> Your answers to assessments and checks, the work you hand in for
-          missions (including links to public GitHub repositories or gists, and the files we read from them),
-          and your conversations with the mentor.
+          <strong>Your work.</strong> The explanations you write for each concept and your answers to
+          follow-up questions, the projects you hand in (including links to public GitHub repositories or
+          gists, and the files we read from them), and your conversations with the mentor.
         </li>
         <li>
-          <strong>What we work out from your work.</strong> Grades, feedback, skill estimates and the evidence
-          behind them, your learning path and your missions.
+          <strong>What we work out from your work.</strong> Grades and feedback, when each concept is due for
+          review, your weekly themes and projects, and the posts drafted about them.
         </li>
         <li>
           <strong>Email settings.</strong> Which optional emails you get, and when we last sent them.
@@ -67,8 +67,8 @@ const sections: LegalSection[] = [
       <>
         <ul>
           <li>
-            To run mentorOS: assess what you can do, plan your path, write missions, grade your work, keep
-            your skill estimates, and let the mentor answer you.
+            To run mentorOS: pick your themes, write concepts and projects, grade your explanations and
+            hand-ins, schedule your reviews, draft your posts, and let the mentor answer you.
           </li>
           <li>To send account emails, such as confirming your address or resetting your password.</li>
           <li>
@@ -94,14 +94,15 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          Your answers, hand-ins and mentor conversations, with the context needed to understand them (such as
-          your skill estimates and path), are sent to OpenAI to grade your work, write missions and
-          assessments, plan your path, and reply as your mentor. OpenAI processes this on our behalf, and its
+          Your explanations, hand-ins and mentor conversations, with the context needed to understand them
+          (such as your current theme and recent results), are sent to OpenAI to grade your work, write
+          concepts, questions and projects, draft your posts, and reply as your mentor. OpenAI processes this on our behalf, and its
           terms for this kind of use say it doesn&apos;t train its models on this data. The results are stored
           in mentorOS as part of your record.
         </p>
         <p>
-          AI feedback can be wrong. Your record keeps the evidence behind every grade so it can be checked.
+          AI feedback can be wrong. Your record keeps every explanation with its grade and feedback so it can be
+          checked.
           Please don&apos;t put passwords, keys or other people&apos;s personal data in your answers or
           hand-ins.
         </p>

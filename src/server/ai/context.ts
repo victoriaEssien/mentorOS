@@ -1,73 +1,39 @@
 import "server-only";
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
-  assessment,
-  assessmentAttempt,
+  conceptAttempt,
   evaluation,
   learnerProfile,
-  learningPath,
-  learningPathItem,
   mission,
   missionSubmission,
-  skill,
-  track,
+  themeRun,
   user,
-  userSkill,
-  userTrack,
 } from "@/db/schema";
+import { findConcept, themeBySlug } from "@/lib/themes";
 import type { Outcome } from "@/server/learning/difficulty";
 
-import {
-  deriveMomentum,
-  missionPoints,
-  WEAK_ABILITY,
-  WEAK_MIN_CONFIDENCE,
-  type LearnerContext,
-} from "./context-render";
+import { deriveMomentum, missionPoints, type LearnerContext } from "./context-render";
 
 export * from "./context-render";
 
-const ACTIVE_MISSION = ["assigned", "in_progress", "submitted"] as const;
+const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
 
 /** Builds the learner's context from the database. Called fresh for every AI call. */
 export async function buildLearnerContext(userId: string): Promise<LearnerContext> {
-  const [[account], [profile], tracks, skills, [path], missions, attempts, evaluations] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10);
+  const [[account], [profile], projects, concepts, evaluations, [run]] = await Promise.all([
     db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1),
     db.select().from(learnerProfile).where(eq(learnerProfile.userId, userId)).limit(1),
-    db
-      .select({ slug: track.slug, name: track.name })
-      .from(userTrack)
-      .innerJoin(track, eq(userTrack.trackId, track.id))
-      .where(eq(userTrack.userId, userId))
-      .orderBy(track.sortOrder),
-    db
-      .select({
-        skillId: userSkill.skillId,
-        slug: skill.slug,
-        name: skill.name,
-        ability: userSkill.ability,
-        confidence: userSkill.confidence,
-        evidenceCount: userSkill.evidenceCount,
-      })
-      .from(userSkill)
-      .innerJoin(skill, eq(userSkill.skillId, skill.id))
-      .where(eq(userSkill.userId, userId))
-      .orderBy(skill.sortOrder),
-    db
-      .select()
-      .from(learningPath)
-      .where(and(eq(learningPath.userId, userId), isNull(learningPath.archivedAt)))
-      .orderBy(desc(learningPath.createdAt))
-      .limit(1),
     db
       .select({
         id: mission.id,
         title: mission.title,
-        type: mission.type,
+        stack: mission.stack,
         objective: mission.objective,
         status: mission.status,
+        dueAt: mission.dueAt,
         updatedAt: mission.updatedAt,
         criteria: mission.evaluationCriteria,
       })
@@ -77,54 +43,36 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
       .limit(8),
     db
       .select({
-        title: assessment.title,
-        kind: assessment.kind,
-        completedAt: assessmentAttempt.completedAt,
-        // The evaluation's score counts unanswered questions as zero; response averages can't.
-        score: sql<
-          number | null
-        >`(select (${evaluation.result} ->> 'score')::real from ${evaluation} where ${evaluation.attemptId} = ${assessmentAttempt.id})`,
+        day: conceptAttempt.day,
+        slug: conceptAttempt.conceptSlug,
+        verdict: conceptAttempt.verdict,
+        grading: conceptAttempt.grading,
       })
-      .from(assessmentAttempt)
-      .innerJoin(assessment, eq(assessmentAttempt.assessmentId, assessment.id))
-      .where(and(eq(assessmentAttempt.userId, userId), isNotNull(assessmentAttempt.completedAt)))
-      .orderBy(desc(assessmentAttempt.completedAt))
-      .limit(5),
+      .from(conceptAttempt)
+      .where(and(eq(conceptAttempt.userId, userId), isNotNull(conceptAttempt.explainedAt)))
+      .orderBy(desc(conceptAttempt.explainedAt))
+      .limit(10),
     db
-      .select({
-        outcome: evaluation.outcome,
-        result: evaluation.result,
-        submissionId: evaluation.submissionId,
-      })
+      .select({ outcome: evaluation.outcome, result: evaluation.result })
       .from(evaluation)
       .where(eq(evaluation.userId, userId))
       .orderBy(desc(evaluation.createdAt))
       .limit(8),
+    db
+      .select({ themeSlug: themeRun.themeSlug, startsOn: themeRun.startsOn })
+      .from(themeRun)
+      .where(and(eq(themeRun.userId, userId), gt(themeRun.endsOn, today)))
+      .orderBy(desc(themeRun.startsOn))
+      .limit(1),
   ]);
+  const theme = run ? themeBySlug(run.themeSlug) : null;
 
-  const [pathItems, missionEvaluations] = await Promise.all([
-    path
-      ? db
-          .select({
-            title: learningPathItem.title,
-            reason: learningPathItem.reason,
-            status: learningPathItem.status,
-            skill: skill.slug,
-          })
-          .from(learningPathItem)
-          .leftJoin(skill, eq(learningPathItem.skillId, skill.id))
-          .where(eq(learningPathItem.pathId, path.id))
-          .orderBy(learningPathItem.order)
-      : Promise.resolve([]),
-    latestMissionEvaluations(missions.map((m) => m.id)),
-  ]);
-
-  const current = missions.find((m) => (ACTIVE_MISSION as readonly string[]).includes(m.status)) ?? null;
+  const projectEvaluations = await latestProjectEvaluations(projects.map((p) => p.id));
+  const current = projects.find((p) => (IN_PLAY as readonly string[]).includes(p.status)) ?? null;
 
   return {
     userId,
     name: account?.name ?? "Learner",
-    tracks,
     goals: [...(profile?.goals ?? []), ...(profile?.customGoal ? [profile.customGoal] : [])],
     background: {
       currentRole: profile?.currentRole ?? null,
@@ -139,44 +87,54 @@ export async function buildLearnerContext(userId: string): Promise<LearnerContex
       preference: profile?.mentorTone ?? "balanced",
       momentum: deriveMomentum(evaluations.map((e) => e.outcome)),
     },
-    skills,
-    weakSkills: skills
-      .filter((s) => s.ability < WEAK_ABILITY && s.confidence >= WEAK_MIN_CONFIDENCE)
-      .map((s) => s.slug),
-    currentPath: path ? { focusSummary: path.focusSummary, items: pathItems } : null,
-    currentMission: current
+    currentTheme:
+      run && theme
+        ? {
+            title: theme.title,
+            week: Math.floor((Date.parse(today) - Date.parse(run.startsOn)) / (7 * 86_400_000)) + 1,
+            weeks: theme.weeks,
+          }
+        : null,
+    currentProject: current
       ? {
           id: current.id,
           title: current.title,
-          type: current.type,
+          stack: current.stack,
           objective: current.objective,
           status: current.status,
+          dueAt: current.dueAt?.toISOString() ?? null,
         }
       : null,
-    recentMissions: missions
-      .filter((m) => m.status === "evaluated" || m.status === "skipped" || m.status === "expired")
-      .map((m) => {
-        const latest = missionEvaluations.get(m.id);
+    recentProjects: projects
+      .filter((p) => p.status === "evaluated" || p.status === "skipped" || p.status === "expired")
+      .map((p) => {
+        const latest = projectEvaluations.get(p.id);
         return {
-          title: m.title,
+          title: p.title,
           outcome: latest?.outcome ?? null,
-          ended: m.status === "skipped" || m.status === "expired" ? m.status : null,
-          completedAt: m.updatedAt.toISOString(),
-          points: latest ? missionPoints(latest.result, m.criteria) : null,
+          ended: p.status === "skipped" || p.status === "expired" ? p.status : null,
+          completedAt: p.updatedAt.toISOString(),
+          points: latest ? missionPoints(latest.result, p.criteria) : null,
         };
       }),
-    recentAssessments: attempts.map((a) => ({
-      title: a.title,
-      kind: a.kind,
-      score: a.score === null ? null : Number(a.score),
-      completedAt: a.completedAt?.toISOString() ?? null,
-    })),
-    recentMistakes: evaluations.flatMap((e) => mistakesFrom(e.result)),
+    recentConcepts: concepts.flatMap((c) => {
+      const entry = findConcept(c.slug);
+      return entry ? [{ title: entry.concept.title, day: c.day, verdict: c.verdict }] : [];
+    }),
+    recentMistakes: [
+      ...evaluations.flatMap((e) => weaknessesFrom(e.result)),
+      ...concepts.flatMap((c) => {
+        const title = findConcept(c.slug)?.concept.title ?? c.slug;
+        return (c.grading?.points ?? [])
+          .filter((point) => point.status === "wrong")
+          .map((point) => `${title}: ${point.note}`);
+      }),
+    ],
   };
 }
 
-/** Each mission's latest evaluation: its outcome and the stored result its points come from. */
-async function latestMissionEvaluations(
+/** Each project's latest evaluation: its outcome and the stored result its points come from. */
+async function latestProjectEvaluations(
   missionIds: string[],
 ): Promise<Map<string, { outcome: Outcome; result: unknown }>> {
   if (missionIds.length === 0) return new Map();
@@ -198,26 +156,10 @@ async function latestMissionEvaluations(
   return latest;
 }
 
-/**
- * Weaknesses from submission evaluations, and misconceptions from graded assessments (their
- * per-answer grades are under `items`, see AttemptEvaluationResult).
- */
-function mistakesFrom(result: unknown): string[] {
-  if (!result || typeof result !== "object") return [];
-  const record = result as { weaknesses?: unknown; items?: unknown };
-
-  const weaknesses = Array.isArray(record.weaknesses)
-    ? record.weaknesses.filter((value): value is string => typeof value === "string")
+/** Weaknesses a project review named. */
+function weaknessesFrom(result: unknown): string[] {
+  const weaknesses = (result as { weaknesses?: unknown } | null)?.weaknesses;
+  return Array.isArray(weaknesses)
+    ? weaknesses.filter((value): value is string => typeof value === "string")
     : [];
-  const misconceptions = Array.isArray(record.items)
-    ? record.items.flatMap((grade) =>
-        grade &&
-        typeof grade === "object" &&
-        typeof (grade as { misconception?: unknown }).misconception === "string"
-          ? [(grade as { misconception: string }).misconception]
-          : [],
-      )
-    : [];
-
-  return [...weaknesses, ...misconceptions];
 }

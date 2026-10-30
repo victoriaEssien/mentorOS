@@ -1,9 +1,9 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, count, countDistinct, eq, isNotNull } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { account, emailSettings, learnerProfile } from "@/db/schema";
+import { account, conceptAttempt, emailSettings, evaluation, learnerProfile, themeRun } from "@/db/schema";
 
 /**
  * Read-only queries for pages. Writes to learner state go through src/server/learning only.
@@ -33,4 +33,25 @@ export async function getEmailSettings(userId: string): Promise<{ weekly: boolea
     .where(eq(emailSettings.userId, userId))
     .limit(1);
   return { weekly: row?.weekly ?? true, reminders: row?.reminders ?? true };
+}
+
+/** Plain counts of what they've done: concepts explained, explanations written, projects, themes. */
+export async function getLearnerSummary(userId: string) {
+  const [[concepts], [projects], [themes]] = await Promise.all([
+    db
+      .select({ distinct: countDistinct(conceptAttempt.conceptSlug), all: count() })
+      .from(conceptAttempt)
+      .where(and(eq(conceptAttempt.userId, userId), isNotNull(conceptAttempt.explainedAt))),
+    db
+      .select({ reviewed: count() })
+      .from(evaluation)
+      .where(and(eq(evaluation.userId, userId), isNotNull(evaluation.submissionId))),
+    db.select({ started: count() }).from(themeRun).where(eq(themeRun.userId, userId)),
+  ]);
+  return {
+    conceptsExplained: Number(concepts?.distinct ?? 0),
+    explanations: Number(concepts?.all ?? 0),
+    projectsReviewed: Number(projects?.reviewed ?? 0),
+    themesStarted: Number(themes?.started ?? 0),
+  };
 }
