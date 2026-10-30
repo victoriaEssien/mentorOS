@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Settings" };
 
 const GROUP = "divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-window";
 
-/** Settings (PRD §8): what onboarding asked, changeable one row at a time. Tracks are fixed. */
+/** Settings (PRD §8): what onboarding asked, changeable one row at a time. */
 export default async function SettingsPage() {
   const { user, profile } = await requireLearner();
   const [withPassword, emails] = await Promise.all([hasPassword(user.id), getEmailSettings(user.id)]);

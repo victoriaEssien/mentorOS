@@ -1,7 +1,5 @@
 import "server-only";
 
-import type { Outcome } from "@/server/learning/difficulty";
-
 import { renderEmail, type Block } from "./layout";
 import type { OutgoingEmail } from "./send";
 import { appUrl, unsubscribeLinks } from "./urls";
@@ -14,80 +12,44 @@ import { appUrl, unsubscribeLinks } from "./urls";
 
 type Recipient = { userId: string; name: string | null; email: string };
 
+type Verdict = "solid" | "partly" | "not_yet";
+
 const firstName = (name: string | null) => name?.trim().split(/\s+/)[0] || "there";
 
-const OUTCOME_WORDS: Record<Outcome, string> = {
-  strong: "strong",
-  pass: "passed",
-  partial: "partly there",
-  fail: "not yet",
-};
+const VERDICT_WORDS: Record<Verdict, string> = { solid: "solid", partly: "partly there", not_yet: "not yet" };
 
 export type WeeklyDigest = {
-  results: { title: string; label: string; outcome: Outcome }[];
-  skills: { name: string; level: string; pieces: number }[];
-  /** How the week's daily missions went ("5 of 7 handed in, 2 missed"), if any were given. */
-  missions: string | null;
-  /** The path step they're on. */
-  focus: string | null;
-  /** This week's challenge, if one is in play. */
-  challenge: string | null;
-  /** Last week's post, drafted for LinkedIn and X, if there was anything to post about. */
-  post: { linkedin: string; x: string } | null;
+  /** Concepts explained over the week, with how each went. */
+  concepts: { title: string; verdict: Verdict }[];
+  /** The theme's project, if there is one: its title and where it stands. */
+  project: { title: string; status: string } | null;
+  /** The theme they're on now. */
+  theme: string | null;
 };
 
 export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey: string): OutgoingEmail {
   const links = unsubscribeLinks(to.userId, "weekly");
-  const count = digest.results.length;
-  const skillNames = digest.skills.map((s) => s.name);
+  const count = digest.concepts.length;
 
-  const blocks: Block[] = [
-    { kind: "text", text: `Hi ${firstName(to.name)}, here's what your work showed last week.` },
-  ];
+  const blocks: Block[] = [{ kind: "text", text: `Hi ${firstName(to.name)}, here's your last week.` }];
   if (count > 0) {
-    blocks.push({
-      kind: "list",
-      // A diagnostic's title already says "Diagnostic: …".
-      items: digest.results.map((r) => {
-        const what = r.title.toLowerCase().startsWith(r.label.toLowerCase())
-          ? r.title
-          : `${r.label}: ${r.title}`;
-        return `${what}, ${OUTCOME_WORDS[r.outcome]}`;
-      }),
-    });
-  }
-  if (digest.missions) blocks.push({ kind: "text", text: `Daily missions: ${digest.missions}.` });
-  if (digest.skills.length > 0) {
-    blocks.push({
-      kind: "text",
-      text: `New evidence on ${digest.skills.map((s) => `${s.name} (now ${s.level.toLowerCase()})`).join(", ")}.`,
-    });
-  }
-  const next = [
-    digest.focus ? `Your focus this week: ${digest.focus}.` : null,
-    digest.challenge ? `Your weekly challenge: ${digest.challenge}.` : null,
-  ].filter((line): line is string => Boolean(line));
-  if (next.length > 0) blocks.push({ kind: "text", text: next.join(" ") });
-  if (digest.post) {
-    // Each paragraph its own block, so the post keeps its shape in every inbox.
-    const paragraphs = (text: string) =>
-      text
-        .split(/\n{2,}/)
-        .map((part) => part.trim())
-        .filter(Boolean);
     blocks.push(
-      { kind: "text", text: "Your post for the week, ready to edit and share. For LinkedIn:" },
-      ...paragraphs(digest.post.linkedin).map((text) => ({ kind: "muted" as const, text })),
-      { kind: "text", text: "For X:" },
-      { kind: "muted", text: digest.post.x },
+      { kind: "text", text: `You explained ${count} ${count === 1 ? "concept" : "concepts"}:` },
+      { kind: "list", items: digest.concepts.map((c) => `${c.title}, ${VERDICT_WORDS[c.verdict]}`) },
     );
+    const shaky = digest.concepts.filter((c) => c.verdict !== "solid").length;
+    if (shaky > 0) {
+      blocks.push({ kind: "text", text: `${shaky} of them come back soon, asked a new way, until they stick.` });
+    }
+  } else {
+    blocks.push({ kind: "text", text: "No concepts explained last week. Today's is waiting." });
   }
+  if (digest.project) blocks.push({ kind: "text", text: `Project: ${digest.project.title}, ${digest.project.status}.` });
+  if (digest.theme) blocks.push({ kind: "text", text: `This week's theme: ${digest.theme}.` });
 
   const { html, text } = renderEmail({
     preheader:
-      count > 0
-        ? `${count} ${count === 1 ? "result" : "results"}${skillNames.length > 0 ? `, new evidence on ${skillNames.slice(0, 2).join(" and ")}` : ""}. Here's what's next.`
-        : `New evidence on ${skillNames.slice(0, 2).join(" and ")}. Here's what's next.`,
+      count > 0 ? `${count} ${count === 1 ? "concept" : "concepts"} explained. Here's what's next.` : "Here's what's next.",
     title: "Your week",
     blocks,
     action: { label: "Open mentorOS", url: appUrl("/today") },
@@ -109,91 +71,66 @@ export function weeklyProgressEmail(to: Recipient, digest: WeeklyDigest, weekKey
   };
 }
 
-/** What today asks of them: whatever Today would put first. */
-export type TodayPoint = { headline: string; detail: string | null; action: string; path: string };
-
 /** Everything the daily email says, read from their record. */
 export type DailyDigest = {
-  point: TodayPoint;
-  /** What was handed in over the last day. */
-  yesterday: { title: string; label: string; outcome: Outcome }[];
-  /** Days since their last hand-in; null if they've never handed anything in. */
-  daysSinceHandIn: number | null;
-  /** Today's coding set, or null when it isn't offered yet (no path, or code can't run). */
-  dailyFive:
-    | { state: "not-started" }
-    | { state: "in-progress"; answered: number; total: number }
-    | { state: "done" }
-    | null;
-  week: { fivesDone: number; missions: string | null };
+  theme: string;
+  /** Today's new concept, if the theme has one left. */
+  newConcept: string | null;
+  /** Reviews due today, at most the day's cap. */
+  reviewsDue: number;
+  /** How yesterday's explanations went. */
+  yesterday: { title: string; verdict: Verdict }[];
+  /** Days since they last explained anything; null if they never have. */
+  daysAway: number | null;
+  /** The theme's project and the days left on it, if it's open. */
+  project: { title: string; daysLeft: number } | null;
 };
 
 /**
- * The daily email: what they did yesterday, what today asks, and how the week is going. It comes
- * every day they leave it on, including after time away: that's when it's most useful.
+ * The daily email: today's concept and reviews, how yesterday went, and the project. It comes every
+ * day they leave it on, including after time away: that's when it's most useful.
  */
 export function dailyEmail(to: Recipient, digest: DailyDigest, dayKey: string): OutgoingEmail {
   const links = unsubscribeLinks(to.userId, "reminders");
-  const { point, yesterday, daysSinceHandIn, dailyFive, week } = digest;
+  const { newConcept, reviewsDue, yesterday, daysAway, project } = digest;
   const hi = `Hi ${firstName(to.name)}.`;
+  const reviews = reviewsDue > 0 ? `${reviewsDue} ${reviewsDue === 1 ? "review" : "reviews"}` : null;
 
   const blocks: Block[] = [];
   if (yesterday.length > 0) {
     blocks.push(
-      { kind: "text", text: `${hi} Since yesterday you handed in:` },
-      {
-        kind: "list",
-        items: yesterday.map((r) => {
-          const what = r.title.toLowerCase().startsWith(r.label.toLowerCase())
-            ? r.title
-            : `${r.label}: ${r.title}`;
-          return `${what}, ${OUTCOME_WORDS[r.outcome]}`;
-        }),
-      },
+      { kind: "text", text: `${hi} Yesterday you explained:` },
+      { kind: "list", items: yesterday.map((c) => `${c.title}, ${VERDICT_WORDS[c.verdict]}`) },
     );
-  } else if (daysSinceHandIn !== null && daysSinceHandIn >= 2) {
-    blocks.push({
-      kind: "text",
-      text: `${hi} Your last hand-in was ${daysSinceHandIn} days ago. One small thing today gets you moving again.`,
-    });
+  } else if (daysAway !== null && daysAway >= 2) {
+    blocks.push({ kind: "text", text: `${hi} It's been ${daysAway} days. One concept today gets you moving again.` });
   } else {
+    blocks.push({ kind: "text", text: hi });
+  }
+  blocks.push({
+    kind: "text",
+    text: `Today, from ${digest.theme}: ${[newConcept ? `${newConcept} (new)` : null, reviews].filter(Boolean).join(" and ") || "nothing new or due. Spend the time on your project"}.`,
+  });
+  if (project) {
     blocks.push({
       kind: "text",
-      text: daysSinceHandIn === null ? hi : `${hi} Nothing was handed in yesterday.`,
+      text: `Project: ${project.title}, ${project.daysLeft === 1 ? "last day" : `${project.daysLeft} days left`}.`,
     });
   }
-  if (point.detail) blocks.push({ kind: "text", text: point.detail });
-  if (dailyFive) {
-    blocks.push({
-      kind: "text",
-      text:
-        dailyFive.state === "done"
-          ? "Today's five: done."
-          : dailyFive.state === "in-progress"
-            ? `Today's five: ${dailyFive.answered} of ${dailyFive.total} answered.`
-            : "Today's five: ready when you are.",
-    });
-  }
-  const weekLine = [
-    `${week.fivesDone} daily ${week.fivesDone === 1 ? "five" : "fives"} done`,
-    week.missions ? `daily missions ${week.missions}` : null,
-  ].filter(Boolean);
-  blocks.push({ kind: "text", text: `Last 7 days: ${weekLine.join("; ")}.` });
 
+  const headline = newConcept ? `Today's concept: ${newConcept}` : reviews ? `${reviews} due today` : "Today on mentorOS";
   const { html, text } = renderEmail({
-    preheader:
-      point.detail ??
-      (yesterday.length > 0 ? `You handed in ${yesterday.length} yesterday.` : "Here's today."),
-    title: point.headline,
+    preheader: reviews && newConcept ? `Plus ${reviews}.` : (project ? `${project.title}.` : "Here's today."),
+    title: headline,
     blocks,
-    action: { label: point.action, url: appUrl(point.path) },
+    action: { label: "Open today's session", url: appUrl("/today") },
     reason: "You're getting this because the daily email is on for your mentorOS account.",
     unsubscribe: { label: "Stop daily emails", url: links.page, settingsUrl: appUrl("/settings") },
   });
 
   return {
     to: to.email,
-    subject: point.headline,
+    subject: headline,
     html,
     text,
     kind: "daily",

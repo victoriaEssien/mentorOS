@@ -1,16 +1,16 @@
 # mentorOS
 
-An AI-managed technical apprenticeship. mentorOS assesses what you actually know, finds your gaps, gives you things to learn and build, evaluates what you produce, checks later whether you retained it, and decides what you should tackle next.
+An AI technical mentor that runs your learning week by week. Every week has a theme, chosen and ordered by the app. Every day you research one new concept from it and explain it back in writing, and it's graded point by point. Concepts you're shaky on come back, asked a new way, until they stick. Every theme ends with a project you build and hand in.
 
 ```text
-Assess → Learn → Practice → Prove → Evaluate → Adapt
+Theme → Research → Explain → Graded → Return → Build
 ```
 
-- Product requirements: [docs/prd.md](docs/prd.md)
+- How the code is laid out, and the learning model: [docs/architecture.md](docs/architecture.md)
 - What the mentor does to the learner: [docs/mentor-behaviour.md](docs/mentor-behaviour.md)
-- How the code is laid out: [docs/architecture.md](docs/architecture.md)
+- The original product thinking: [docs/prd.md](docs/prd.md) (its assessments, tracks and skill levels were replaced by weekly themes)
 
-> **Status:** MVP. The whole loop runs end to end on a phone: onboarding, a written diagnostic, graded evidence, a planned path, daily missions and weekly challenges, hand-ins evaluated against criteria, knowledge and surprise checks, and a mentor that knows the learner's record.
+> **Status:** MVP. The whole loop runs end to end on a phone: onboarding, 17 themes over 21 weeks, a concept a day graded against a stored checklist with a follow-up question, spaced reviews, a project per theme reviewed against its brief, a draft post for each project, a history of every explanation, daily and weekly emails, and a mentor that knows the learner's record.
 
 ## Stack
 
@@ -33,9 +33,10 @@ Assess → Learn → Practice → Prove → Evaluate → Adapt
 pnpm install
 cp .env.example .env.local        # then fill it in
 pnpm db:push                      # create tables on your Neon database
-pnpm db:seed                      # six tracks, their skill trees, prerequisites
 pnpm dev
 ```
+
+There's nothing to seed. The themes and their concepts live in code (`src/lib/themes.ts`); each concept's checklist and reference explanation are written by the model the first time anyone opens it, then stored.
 
 Minimum `.env.local` to boot: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPENAI_API_KEY`, `AI_MODEL_FAST`, `AI_MODEL_SMART`, `AI_MODEL_DEEP`.
 
@@ -59,7 +60,7 @@ In development, emails print to the `pnpm dev` log, links included, so confirmin
 2. Set `RESEND_API_KEY` and `EMAIL_FROM` (for example `mentorOS <no-reply@your-domain>`).
 3. Outside production, mail only goes to `EMAIL_DEV_REDIRECT` (`delivered@resend.dev` is Resend's test inbox), never to a learner's address.
 
-The weekly progress email and reminders go out from `/api/cron/daily`, which Vercel Cron calls at 08:00 UTC (`vercel.json`) with `CRON_SECRET` as a bearer token. Set `CRON_SECRET` in Vercel too. Resend's free plan sends 100 emails a day, so a run stops at 80 and leaves room for account emails. To run it by hand:
+The daily email and the Monday progress email go out from `/api/cron/daily`, which Vercel Cron calls at 08:00 UTC (`vercel.json`) with `CRON_SECRET` as a bearer token. Set `CRON_SECRET` in Vercel too. Resend's free plan sends 100 emails a day, so a run stops at 80 and leaves room for account emails. To run it by hand:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3210/api/cron/daily
@@ -67,16 +68,17 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3210/api/cron/dail
 
 ### Live AI calls cost money
 
-Every assessment, grade, plan, mission and mentor reply is a paid model call on your OpenAI account. Each call has an output cap, so a stuck request can't run up a bill, and each logs one `ai.generation` line with its model and token counts. Unit tests never call a model. Roughly, per call:
+Every concept, grade, project and mentor reply is a paid model call on your OpenAI account. Each call has an output cap, so a stuck request can't run up a bill, and each logs one `ai.generation` line with its model and token counts. Unit tests never call a model. Roughly, per call:
 
-| What                                   | Model tier | Cost     |
-| -------------------------------------- | ---------- | -------- |
-| Write a diagnostic (three calls)       | deep       | ~$0.25   |
-| Write a knowledge or surprise check    | deep       | ~$0.05   |
-| Grade one written answer               | smart      | ~$0.005  |
-| Grade a hand-in, with its second look  | smart      | ~$0.025  |
-| Plan a path, write a mission           | smart      | ~$0.02   |
-| A mentor reply, a hint, an explanation | fast       | < $0.001 |
+| What                                           | Model tier | Cost     |
+| ---------------------------------------------- | ---------- | -------- |
+| Write a concept (once, shared by all learners) | smart      | ~$0.01   |
+| Grade an explanation                           | smart      | ~$0.01   |
+| A review question, a follow-up check           | fast       | ~$0.002  |
+| Write a theme's project                        | smart      | ~$0.04   |
+| Review a hand-in, with its second look         | smart      | ~$0.025  |
+| Draft a project post                           | smart      | ~$0.01   |
+| A mentor reply, an explanation                 | fast       | < $0.001 |
 
 ## Scripts
 
@@ -92,32 +94,31 @@ Every assessment, grade, plan, mission and mentor reply is a paid model call on 
 | `pnpm db:migrate`                   | Apply migrations                         |
 | `pnpm db:push`                      | Push schema directly (early development) |
 | `pnpm db:studio`                    | Drizzle Studio                           |
-| `pnpm db:seed`                      | Seed tracks and skills                   |
 
 ## Project structure
 
 ```text
 docs/                       PRD, mentor behaviour, architecture
-scripts/seed.ts             taxonomy seed
 src/
   app/
-    (marketing)/            landing page
-    (auth)/                 sign-in, sign-up
-    (app)/(shell)/          tabs with the dock: today, path, missions, mentor, profile ("You"),
-                            plus settings and assessments, pushed from You
-    (app)/(focus)/          full-screen flows: onboarding, the assessment player and results
+    (marketing)/            landing page, privacy, terms
+    (auth)/                 sign-in, sign-up, password reset
+    (app)/(shell)/          tabs with the dock: today, projects, concepts, mentor, profile ("You"),
+                            plus settings, pushed from You
+    (app)/(focus)/          full-screen flows: onboarding
     api/auth/[...all]/      Better Auth handler
-    api/mentor/             streaming mentor chat, and hint-only help inside assessments
+    api/mentor/             streaming mentor chat
+    api/cron/daily/         the daily email job
   components/
     shell/                  app frame: dock, side rail, screens, page transitions
-    system/                 the app's own pieces: skill meters, journal, alert and mission cards
+    system/                 the app's own pieces: meters, alert and mission cards, rich text
     form/, ui/              form helpers and shadcn components
   db/
     schema/                 Drizzle tables, one file per area
-    seed/                   starter taxonomy data
-  lib/                      env, auth, and pure helpers shared by server and client
+  lib/                      env, auth, the theme curriculum, and pure helpers for server and client
   server/
     ai/                     provider and tiers, learner context, Zod output schemas, AI modules
+    email/                  templates, the daily job, sending
     learning/               the loop's orchestrators and deterministic engine (writes state)
     queries/                read-only queries for pages
   proxy.ts                  optimistic auth redirect for app routes
@@ -125,9 +126,10 @@ src/
 
 ## How the loop runs
 
-1. **Onboarding** asks for tracks, goals, background and preferences, then writes a diagnostic.
-2. **The diagnostic** is graded: multiple choice by rules, written answers by the model against a rubric. Each answer becomes evidence, and skill estimates are recomputed from all of it in plain code.
-3. **The path** is planned from that evidence, with a reason for every step and prerequisites enforced in code.
-4. **Missions** are written for the current step, pitched by recent outcomes. Hand-ins are evaluated per criterion, become evidence, and move the path on when they pass.
-5. **Checks** keep estimates honest: knowledge checks on request, surprise checks on skills not practised for a while.
-6. **Today** shows the one thing to do next. **The mentor** answers from the learner's record and can explain, test, replan and hand out work.
+1. **Onboarding** asks for goals, background and preferences, and shows how the weeks work. The first theme starts that day.
+2. **The theme** runs for one or two weeks. When it ends, the next one in the curriculum starts the next time the learner is back, so time away never skips a theme.
+3. **Today's session** is one new concept from the theme plus up to three reviews, the most overdue and shakiest first, from any earlier week. The rest roll over to tomorrow.
+4. **An explanation** is graded against the concept's stored checklist: each point hit, missed or wrong, then a verdict in code (solid, partly there, not yet), the reference explanation to compare, and one follow-up question with a short check of the answer.
+5. **Reviews** are scheduled from the verdict: solid comes back in 3, 7, 14, then 30 days; partly there in a day or two; not yet the next day. Each review asks in a new scenario.
+6. **The project** for the theme is written on first visit, due when the theme ends. The hand-in is reviewed against the brief, then a post for X and LinkedIn is drafted.
+7. **The mentor** answers from the learner's record: the theme, the project and the concepts they're shaky on.

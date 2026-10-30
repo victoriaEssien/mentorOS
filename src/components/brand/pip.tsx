@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * - thinking: grading, planning or writing a reply;
  * - pass: a result that met the bar (hops once);
  * - notYet: a result that didn't, looking up at the cell still to earn;
- * - alert: something unannounced, like a surprise check;
+ * - alert: something that needs a look, like a review that's due;
  * - asleep: the learner has been away.
  *
  * Everything on the body is ink on signal yellow in both themes. Feet and anything around Pip use

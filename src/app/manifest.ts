@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "mentorOS",
     short_name: "mentorOS",
     description:
-      "A technical mentor that figures out what you know, what you don't, and what you should do next.",
+      "A technical mentor: a theme a week, a concept a day to explain in your own words, and a project to build.",
     start_url: "/today",
     scope: "/",
     display: "standalone",
@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icon/maskable", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "Today's mission", short_name: "Today", url: "/today" },
+      { name: "Today's session", short_name: "Today", url: "/today" },
       { name: "Ask the mentor", short_name: "Mentor", url: "/mentor" },
     ],
   };

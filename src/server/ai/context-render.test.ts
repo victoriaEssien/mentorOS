@@ -5,7 +5,6 @@ import { deriveMomentum, missionPoints, renderLearnerContext, type LearnerContex
 const base: LearnerContext = {
   userId: "u1",
   name: "Ada",
-  tracks: [{ slug: "software-engineering", name: "Software Engineering" }],
   goals: ["Become job-ready"],
   background: {
     currentRole: "Junior developer",
@@ -17,15 +16,10 @@ const base: LearnerContext = {
     existingProjects: null,
   },
   tone: { preference: "balanced", momentum: "steady" },
-  skills: [
-    { skillId: "s1", slug: "sql", name: "SQL", ability: 0.68, confidence: 0.5, evidenceCount: 4 },
-    { skillId: "s2", slug: "http", name: "HTTP", ability: 0.3, confidence: 0.2, evidenceCount: 1 },
-  ],
-  weakSkills: [],
-  currentPath: null,
-  currentMission: null,
-  recentMissions: [],
-  recentAssessments: [],
+  currentTheme: null,
+  currentProject: null,
+  recentProjects: [],
+  recentConcepts: [],
   recentMistakes: [],
 };
 
@@ -54,63 +48,49 @@ describe("deriveMomentum", () => {
 
 describe("renderLearnerContext", () => {
   it("states background as self-reported, not evidence", () => {
-    expect(renderLearnerContext(base)).toContain(
-      "Background (self-reported, not evidence): role: Junior developer",
+    expect(renderLearnerContext(base)).toContain("Background (self-reported): role: Junior developer");
+  });
+
+  it("says when there's no project, and lists concepts with how they went", () => {
+    const text = renderLearnerContext({
+      ...base,
+      recentConcepts: [
+        { title: "Idempotency", day: "2026-10-30", verdict: "partly" },
+        { title: "Indexes", day: "2026-10-29", verdict: null },
+      ],
+    });
+    expect(text).toContain("CURRENT PROJECT: none right now.");
+    expect(text).toContain("- 2026-10-30 Idempotency: partly there");
+    expect(text).toContain("- 2026-10-29 Indexes: not explained");
+  });
+
+  it("shows the current project with its stack and due date", () => {
+    const text = renderLearnerContext({
+      ...base,
+      currentProject: {
+        id: "p1",
+        title: "Stripe checkout",
+        stack: "Your stack: Next.js",
+        objective: "Take a payment end to end.",
+        status: "in_progress",
+        dueAt: "2026-11-06T09:00:00.000Z",
+      },
+    });
+    expect(text).toContain(
+      "CURRENT PROJECT (in progress, due 2026-11-06): Stripe checkout [Your stack: Next.js]. Take a payment end to end.",
     );
-  });
-
-  it("lists skills with ability, band and confidence", () => {
-    const text = renderLearnerContext(base);
-    expect(text).toContain("- sql (SQL): 68% intermediate, medium confidence, 4");
-    expect(text).toContain("- http (HTTP): 30% developing, low confidence, 1");
-  });
-
-  it("says when there is no evidence or path yet", () => {
-    const text = renderLearnerContext({ ...base, skills: [] });
-    expect(text).toContain("SKILLS: no evidence yet.");
-    expect(text).toContain("CURRENT PATH: none yet.");
   });
 
   it("adds momentum guidance but keeps standards fixed", () => {
     const text = renderLearnerContext({ ...base, tone: { preference: "direct", momentum: "struggling" } });
     expect(text).toContain("TONE: direct.");
     expect(text).toContain("struggled recently");
-    expect(text).toContain("Tone never changes scores, verdicts or whether they are ready for something.");
-  });
-
-  it("renders the path in order with reasons", () => {
-    const text = renderLearnerContext({
-      ...base,
-      currentPath: {
-        focusSummary: "HTTP before caching",
-        items: [
-          {
-            title: "HTTP fundamentals",
-            reason: "Diagnostic gaps in status codes",
-            status: "current",
-            skill: "http",
-          },
-          { title: "Caching", reason: "Builds on HTTP", status: "upcoming", skill: "caching" },
-        ],
-      },
-    });
-    expect(text).toContain("CURRENT PATH: HTTP before caching");
-    expect(text).toContain("1. [current] HTTP fundamentals (http): Diagnostic gaps in status codes");
-    expect(text).toContain("2. [upcoming] Caching (caching): Builds on HTTP");
+    expect(text).toContain("Tone never changes scores or verdicts.");
   });
 
   it("caps long lists so prompts stay bounded", () => {
-    const skills = Array.from({ length: 40 }, (_, index) => ({
-      skillId: `s${index}`,
-      slug: `skill-${index}`,
-      name: `Skill ${index}`,
-      ability: 0.5,
-      confidence: 0.5,
-      evidenceCount: 1,
-    }));
     const mistakes = Array.from({ length: 20 }, (_, index) => `mistake ${index}`);
-    const text = renderLearnerContext({ ...base, skills, recentMistakes: mistakes });
-    expect(text).toContain("- and 10 more");
+    const text = renderLearnerContext({ ...base, recentMistakes: mistakes });
     expect(text).toContain("mistake 7");
     expect(text).not.toContain("mistake 8");
   });
@@ -153,10 +133,10 @@ describe("missionPoints", () => {
     expect(missionPoints(null, criteria)).toBeNull();
   });
 
-  it("lets the mentor see where a mission lost its marks", () => {
+  it("lets the mentor see where a project lost its marks", () => {
     const text = renderLearnerContext({
       ...base,
-      recentMissions: [
+      recentProjects: [
         {
           title: "Clean an order log",
           outcome: "partial",

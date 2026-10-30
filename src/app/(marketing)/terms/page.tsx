@@ -39,9 +39,9 @@ const sections: LegalSection[] = [
     title: "What mentorOS does",
     body: (
       <p>
-        mentorOS assesses what you can do, plans a path, gives you missions and grades the work you hand in.
-        Assessments, missions, grades, feedback and skill estimates are produced by AI models and our own
-        code. They&apos;re there to help you learn. They can be wrong, and they aren&apos;t qualifications,
+        mentorOS picks a theme for each week or two, gives you a concept a day to research and explain, and a
+        project per theme to build, and grades what you write and hand in. Concepts, projects, grades and
+        feedback are produced by AI models and our own code. They&apos;re there to help you learn. They can be wrong, and they aren&apos;t qualifications,
         professional advice or a promise of any job or result.
       </p>
     ),

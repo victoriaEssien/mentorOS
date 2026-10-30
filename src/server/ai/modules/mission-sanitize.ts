@@ -1,35 +1,17 @@
 import type { GeneratedMission } from "../schemas";
 
 /**
- * Holds the Mission Generator's output to what the app can use. The schema guarantees shape;
- * this guarantees meaning:
+ * Holds the Project Writer's output to what the app can use. The schema guarantees shape; this
+ * guarantees meaning:
  *
- * - skills come from the allowed list, with the path item's skill first and always present
+ * - a project takes 1 to 4 whole weeks, and its effort fits that (at most about 15 hours a week)
  * - every criterion is scored out of 10 and has a key, so evaluations line up with it
- * - time fits the cadence: a daily mission is an evening, a weekly challenge a weekend
  * - resource links are plain web links or nothing: no javascript:, no made-up schemes
  */
 
-export const MINUTES = {
-  daily: { min: 15, max: 120 },
-  weekly: { min: 120, max: 600 },
-} as const;
+const MAX_MINUTES_A_WEEK = 15 * 60;
 
-export function sanitizeMission(
-  mission: GeneratedMission,
-  {
-    cadence,
-    focusSkill,
-    allowedSkills,
-  }: { cadence: "daily" | "weekly"; focusSkill: string | null; allowedSkills: ReadonlySet<string> },
-): GeneratedMission {
-  const skills = [
-    ...new Set([
-      ...(focusSkill ? [focusSkill] : []),
-      ...mission.skills.map((slug) => slug.trim().toLowerCase()).filter((slug) => allowedSkills.has(slug)),
-    ]),
-  ];
-
+export function sanitizeMission(mission: GeneratedMission): GeneratedMission {
   const usedKeys = new Set<string>();
   const evaluationCriteria = mission.evaluationCriteria
     .filter((criterion) => criterion.label.trim() && criterion.description.trim())
@@ -40,7 +22,7 @@ export function sanitizeMission(
       return { key, label: criterion.label.trim(), description: criterion.description.trim(), maxScore: 10 };
     });
 
-  const { min, max } = MINUTES[cadence];
+  const durationWeeks = Math.min(4, Math.max(1, Math.round(mission.durationWeeks)));
 
   return {
     ...mission,
@@ -53,8 +35,11 @@ export function sanitizeMission(
     deliverable: mission.deliverable.trim(),
     acceptanceCriteria: mission.acceptanceCriteria.map((item) => item.trim()).filter(Boolean),
     stretchGoal: mission.stretchGoal?.trim() || null,
-    estimatedMinutes: Math.min(max, Math.max(min, Math.round(mission.estimatedMinutes))),
-    skills,
+    durationWeeks,
+    estimatedMinutes: Math.min(
+      durationWeeks * MAX_MINUTES_A_WEEK,
+      Math.max(60, Math.round(mission.estimatedMinutes)),
+    ),
     requiredKnowledge: mission.requiredKnowledge.map((item) => item.trim()).filter(Boolean),
     evaluationCriteria,
     resources: mission.resources

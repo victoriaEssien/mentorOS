@@ -15,7 +15,7 @@ export default function SignUpPage() {
     <>
       <h1 className="text-display">Create your account</h1>
       <p className="mt-2 mb-7 text-callout text-muted-foreground">
-        Next, a short assessment finds out what you can already do.
+        Next, a few questions, then your first concept.
       </p>
       <Suspense fallback={<SignUpPanel />}>
         <SignUpGate />

@@ -35,10 +35,10 @@ export async function completeOnboardingAction(
     return { error: parsed.error.issues[0]?.message ?? "Some answers are missing. Go back and check them." };
   }
 
-  const { assessmentId } = await completeOnboarding(user.id, {
+  await completeOnboarding(user.id, {
     ...parsed.data,
     technologiesUsed: [...new Set(parsed.data.technologiesUsed)],
   });
 
-  redirect(assessmentId ? `/assessments/${assessmentId}` : "/today");
+  redirect("/today");
 }

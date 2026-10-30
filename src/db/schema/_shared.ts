@@ -10,45 +10,6 @@ export const updatedAt = () =>
     .$onUpdate(() => new Date())
     .notNull();
 
-/** Where a piece of skill evidence came from (PRD §33). */
-export const evidenceSourceType = pgEnum("evidence_source_type", [
-  "assessment",
-  "quiz",
-  "mission",
-  "project",
-  "manual",
-  "reflection",
-]);
-
-/** Assessment item formats (PRD §9). */
-export const assessmentItemType = pgEnum("assessment_item_type", [
-  "knowledge",
-  "conceptual",
-  "code",
-  "debugging",
-  "scenario",
-  "problem_solving",
-  "practical",
-  "security",
-  "data",
-  "electronics",
-  // The daily coding set: programs that run against tests, code to explain, output to predict.
-  "program",
-  "algorithm",
-  "fix_bug",
-  "explain_code",
-  "predict_output",
-]);
-
-/** Why an assessment exists. Quizzes, surprise checks and the daily coding set live here too (PRD §9, §18). */
-export const assessmentKind = pgEnum("assessment_kind", [
-  "diagnostic",
-  "knowledge_check",
-  "surprise",
-  "reassessment",
-  "daily",
-]);
-
 /** Mission activity types (PRD §14). */
 export const missionType = pgEnum("mission_type", [
   "learn",
@@ -63,6 +24,7 @@ export const missionType = pgEnum("mission_type", [
   "challenge",
 ]);
 
+/** Projects are "weekly"; "daily" is left from the old daily missions, which no longer exist. */
 export const missionCadence = pgEnum("mission_cadence", ["daily", "weekly"]);
 
 /** `expired`: not handed in by its due time. Recorded, never scored. */
@@ -75,9 +37,7 @@ export const missionStatus = pgEnum("mission_status", [
   "expired",
 ]);
 
-export const pathItemStatus = pgEnum("path_item_status", ["upcoming", "current", "completed", "deferred"]);
-
-/** Overall verdict on a piece of evidence (PRD §16, §25). */
+/** Overall verdict on a project review. */
 export const evaluationOutcome = pgEnum("evaluation_outcome", ["strong", "pass", "partial", "fail"]);
 
 export const mentorRole = pgEnum("mentor_role", ["user", "assistant", "system"]);
@@ -87,3 +47,9 @@ export const mentorRole = pgEnum("mentor_role", ["user", "assistant", "system"])
  * one; the system also shifts delivery with momentum. Scores and verdicts never change with tone.
  */
 export const mentorTone = pgEnum("mentor_tone", ["direct", "balanced", "supportive"]);
+
+/** A concept explanation's verdict: plain words, no score. */
+export const conceptVerdict = pgEnum("concept_verdict", ["solid", "partly", "not_yet"]);
+
+/** Whether an attempt is the day's new concept or a spaced review of an earlier one. */
+export const attemptKind = pgEnum("attempt_kind", ["new", "review"]);

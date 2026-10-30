@@ -1,49 +1,30 @@
 import "server-only";
-import { and, count, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { isUniqueViolation } from "@/db/errors";
-import {
-  evaluation,
-  learningPath,
-  learningPathItem,
-  mission,
-  missionSkill,
-  missionSubmission,
-  skill,
-  userTrack,
-} from "@/db/schema";
+import { evaluation, mission, missionSubmission, themeRun } from "@/db/schema";
 import { buildLearnerContext } from "@/server/ai/context";
-import {
-  generateMission,
-  PROMPT_VERSION,
-  type GenerateMissionInput,
-} from "@/server/ai/modules/mission-generator";
-import { getPrerequisiteEdges, getShelvedTrackIds, getTrackSkills } from "@/server/queries/skills";
+import { generateMission, PROMPT_VERSION } from "@/server/ai/modules/mission-generator";
+import { release, take, type Limit } from "@/server/throttle";
 
 import { planDifficulty, type Outcome } from "./difficulty";
 import { planStack, stackLabel } from "./mission-stack";
-import { blockedSkills } from "./readiness";
-
-export type Cadence = "daily" | "weekly";
-
-const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** There is no current path item to write a mission for: plan a path first. */
-export class NoPathError extends Error {
-  constructor() {
-    super("No current path item");
-    this.name = "NoPathError";
-  }
-}
+import { ensureThemeRun } from "./themes";
 
 /**
- * Marks missions that ran out of time as expired: still not started or in progress at their due
- * time (a day for a daily mission, a week for a challenge). Work already handed in never expires.
- * Expired missions stay on record and count as missed in the week; they are never evidence.
- * Checked lazily, whenever missions are looked at or assigned, and swept by the daily job. Without
- * a userId it sweeps everyone. Returns how many expired.
+ * Projects: one per theme, written by the app in a stack it picks and due when the theme ends. The
+ * learner builds it their own way, hands in the repo, and it's reviewed against the brief. Stored
+ * as missions of the weekly cadence.
+ */
+
+const IN_PLAY = ["assigned", "in_progress", "submitted"] as const;
+const PROJECT_WRITE: Limit = { max: 1, perSeconds: 150 };
+
+/**
+ * Marks projects that ran out of time as expired: still not started or in progress at their due
+ * time. Work already handed in never expires. Expired projects stay on record as missed. Checked
+ * lazily whenever projects are looked at or written, and swept by the daily job. Without a userId
+ * it sweeps everyone. Returns how many expired.
  */
 export async function expireOverdueMissions(userId: string | null, now: Date = new Date()): Promise<number> {
   const expired = await db
@@ -60,46 +41,117 @@ export async function expireOverdueMissions(userId: string | null, now: Date = n
   return expired.length;
 }
 
-/** The mission in play for this cadence, if any. */
-export async function getMissionInPlay(userId: string, cadence: Cadence) {
+/** The project in play, if any. */
+export async function getProjectInPlay(userId: string) {
   const [row] = await db
     .select({ id: mission.id })
     .from(mission)
     .where(
-      and(eq(mission.userId, userId), eq(mission.cadence, cadence), inArray(mission.status, [...IN_PLAY])),
+      and(eq(mission.userId, userId), eq(mission.cadence, "weekly"), inArray(mission.status, [...IN_PLAY])),
     )
     .limit(1);
   return row ?? null;
 }
 
 /**
- * Assigns the learner's next mission (PRD §13, §17): one practical task for the current path item,
- * pitched by planDifficulty from how their recent missions on that skill went. If a mission of
- * this cadence is already in play it is returned instead, so missions never stack up.
+ * The project for the learner's current theme, written the first time it's asked for. A theme has
+ * exactly one project, due when the theme ends; handing it in early doesn't start another. The
+ * stack and difficulty are decided here in code; the Project Writer decides the build.
  */
-export async function assignMission(
+export async function assignProject(
   userId: string,
-  cadence: Cadence,
+  today: string,
   now: Date = new Date(),
 ): Promise<{ missionId: string; created: boolean }> {
   await expireOverdueMissions(userId, now);
-  const inPlay = await getMissionInPlay(userId, cadence);
-  if (inPlay) return { missionId: inPlay.id, created: false };
+  const { run, theme } = await ensureThemeRun(userId, today);
+  if (run.missionId) return { missionId: run.missionId, created: false };
 
-  const { input, pathItemId, difficulty, idBySlug } = await missionInput(userId, cadence);
-  const { mission: generated, meta } = await generateMission(input);
+  // Only one project can be in play. Due times are midnight UTC, so east of UTC the last theme's
+  // project can still be open for the first hours of the next theme: its theme is over, so close it.
+  await db
+    .update(mission)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(mission.userId, userId),
+        inArray(mission.status, ["assigned", "in_progress"]),
+        inArray(
+          mission.id,
+          db
+            .select({ id: themeRun.missionId })
+            .from(themeRun)
+            .where(and(eq(themeRun.userId, userId), lte(themeRun.endsOn, today))),
+        ),
+      ),
+    );
+  const open = await getProjectInPlay(userId);
+  if (open) {
+    const [owner] = await db
+      .select({ id: themeRun.id })
+      .from(themeRun)
+      .where(eq(themeRun.missionId, open.id))
+      .limit(1);
+    if (owner) throw new Error("The last theme's project is still being reviewed.");
+    // A project from before weekly themes stands as this theme's, rather than stacking a second.
+    await db.update(themeRun).set({ missionId: open.id }).where(eq(themeRun.id, run.id));
+    return { missionId: open.id, created: false };
+  }
 
-  const skillIds = generated.skills.flatMap((slug) => idBySlug.get(slug) ?? []);
-  const missionId = crypto.randomUUID();
+  const lock = `project-write:${run.id}`;
+  if (!(await take(lock, PROJECT_WRITE))) {
+    const deadline = Date.now() + 90_000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      const [again] = await db
+        .select({ missionId: themeRun.missionId })
+        .from(themeRun)
+        .where(eq(themeRun.id, run.id));
+      if (again?.missionId) return { missionId: again.missionId, created: false };
+    }
+    throw new Error("The project is still being written by another request.");
+  }
 
   try {
+    const [context, history, [given]] = await Promise.all([
+      buildLearnerContext(userId),
+      projectHistory(userId),
+      db
+        .select({ projects: count() })
+        .from(mission)
+        .where(and(eq(mission.userId, userId), eq(mission.cadence, "weekly"))),
+    ]);
+    const stack = planStack({
+      given: Number(given?.projects ?? 0),
+      technologiesUsed: context.background.technologiesUsed,
+    });
+    const difficulty = planDifficulty({
+      ability: 0.5,
+      recentOutcomes: history.flatMap((h) => (h.outcome ? [h.outcome] : [])),
+      lastDifficulty: history[0]?.difficulty ?? null,
+    });
+
+    const { mission: generated, meta } = await generateMission({
+      context,
+      theme: {
+        title: theme.title,
+        summary: theme.summary,
+        project: theme.project,
+        concepts: theme.concepts.map((c) => c.title),
+        weeks: theme.weeks,
+      },
+      stack,
+      difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
+    });
+
+    const missionId = crypto.randomUUID();
     await db.batch([
       db.insert(mission).values({
         id: missionId,
         userId,
-        pathItemId,
+        themeSlug: theme.slug,
         type: generated.type,
-        cadence,
+        cadence: "weekly",
         title: generated.title,
         objective: generated.objective,
         scenario: generated.scenario,
@@ -109,7 +161,7 @@ export async function assignMission(
         deliverable: generated.deliverable,
         acceptanceCriteria: generated.acceptanceCriteria,
         stretchGoal: generated.stretchGoal,
-        stack: stackLabel(input.stack, generated.technology),
+        stack: stackLabel(stack, generated.technology),
         evaluationCriteria: generated.evaluationCriteria,
         resources: generated.resources.map(({ url, note, ...resource }) => ({
           ...resource,
@@ -117,170 +169,50 @@ export async function assignMission(
           ...(note ? { note } : {}),
         })),
         estimatedMinutes: generated.estimatedMinutes,
-        difficulty,
-        dueAt: new Date(now.getTime() + (cadence === "daily" ? DAY_MS : 7 * DAY_MS)),
+        difficulty: difficulty.difficulty,
+        // Due at the end of the theme's last day.
+        dueAt: new Date(`${run.endsOn}T00:00:00Z`),
         generatedBy: `${meta.model}/${PROMPT_VERSION}`,
         createdAt: now,
       }),
-      ...(skillIds.length > 0
-        ? [db.insert(missionSkill).values(skillIds.map((skillId) => ({ missionId, skillId })))]
-        : []),
+      db.update(themeRun).set({ missionId }).where(eq(themeRun.id, run.id)),
     ]);
-  } catch (error) {
-    // Another request assigned one first: hand back that one.
-    if (isUniqueViolation(error)) {
-      const winner = await getMissionInPlay(userId, cadence);
-      if (winner) return { missionId: winner.id, created: false };
-    }
-    throw error;
+
+    console.info(
+      JSON.stringify({
+        event: "project.assigned",
+        missionId,
+        theme: theme.slug,
+        difficulty: difficulty.difficulty,
+        stack: stack.mode,
+      }),
+    );
+    return { missionId, created: true };
+  } finally {
+    await release(lock).catch(() => undefined);
   }
-
-  console.info(
-    JSON.stringify({
-      event: "mission.assigned",
-      missionId,
-      cadence,
-      type: generated.type,
-      difficulty,
-      mode: input.difficulty.mode,
-    }),
-  );
-  return { missionId, created: true };
 }
 
-/**
- * What the mission generator sees for the current path item: the learner's record, the skills a
- * mission may touch, recent missions on that skill, and the difficulty planDifficulty chose.
- * Separate from assignMission so a model change can be checked against exactly the input
- * production builds.
- */
-export async function missionInput(
-  userId: string,
-  cadence: Cadence,
-): Promise<{
-  input: GenerateMissionInput;
-  pathItemId: string;
-  difficulty: number;
-  idBySlug: Map<string, string>;
-}> {
-  const [current] = await db
-    .select({
-      id: learningPathItem.id,
-      title: learningPathItem.title,
-      reason: learningPathItem.reason,
-      skillId: learningPathItem.skillId,
-      skillSlug: skill.slug,
-    })
-    .from(learningPathItem)
-    .innerJoin(
-      learningPath,
-      and(
-        eq(learningPath.id, learningPathItem.pathId),
-        eq(learningPath.userId, userId),
-        isNull(learningPath.archivedAt),
-      ),
-    )
-    .leftJoin(skill, eq(skill.id, learningPathItem.skillId))
-    .where(eq(learningPathItem.status, "current"))
-    .limit(1);
-  if (!current) throw new NoPathError();
-
-  const tracks = await db
-    .select({ id: userTrack.trackId })
-    .from(userTrack)
-    .where(eq(userTrack.userId, userId));
-  const [context, trackSkills, shelvedSkills, edges, history, [given]] = await Promise.all([
-    buildLearnerContext(userId),
-    getTrackSkills(tracks.map((t) => t.id)),
-    getShelvedTrackIds().then(getTrackSkills),
-    getPrerequisiteEdges(),
-    current.skillId ? missionHistory(userId, current.skillId) : Promise.resolve([]),
-    db
-      .select({ missions: count() })
-      .from(mission)
-      .where(and(eq(mission.userId, userId), eq(mission.cadence, cadence))),
-  ]);
-  const stack = planStack({
-    cadence,
-    given: Number(given?.missions ?? 0),
-    technologiesUsed: context.background.technologiesUsed,
-  });
-
-  const estimates = new Map(context.skills.map((s) => [s.slug, s]));
-  const blocked = new Set(
-    blockedSkills(
-      trackSkills.map((s) => s.slug),
-      edges,
-      estimates,
-    ).map((b) => b.skill),
-  );
-  const allowed = trackSkills.filter((s) => !blocked.has(s.slug) || s.slug === current.skillSlug);
-  // Shelved tracks (security, UI, data, electronics) come up only inside a mission that needs them.
-  const inTracks = new Set(trackSkills.map((s) => s.slug));
-  const side = shelvedSkills.filter((s) => !inTracks.has(s.slug));
-
-  // A skill nothing has measured yet starts gently rather than at the middle.
-  const ability = current.skillSlug ? (estimates.get(current.skillSlug)?.ability ?? 0.3) : 0.5;
-  const difficulty = planDifficulty({
-    ability,
-    recentOutcomes: history.flatMap((h) => (h.outcome ? [h.outcome] : [])),
-    lastDifficulty: history[0]?.difficulty ?? null,
-  });
-
-  return {
-    pathItemId: current.id,
-    difficulty: difficulty.difficulty,
-    idBySlug: new Map([...allowed, ...side].map((s) => [s.slug, s.id])),
-    input: {
-      context,
-      cadence,
-      pathItem: { title: current.title, reason: current.reason, skill: current.skillSlug },
-      difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
-      allowedSkills: allowed.map((s) => ({ slug: s.slug, name: s.name })),
-      sideSkills: side.map((s) => ({ slug: s.slug, name: s.name })),
-      stack,
-      recentMissions: history.map((h) => ({
-        title: h.title,
-        outcome: h.outcome ?? (h.expired ? "ran out of time, not handed in" : null),
-      })),
-    },
-  };
-}
-
-/** Recent missions on a skill, newest first, with each one's latest evaluated outcome. */
-async function missionHistory(userId: string, skillId: string) {
+/** Recent projects, newest first, with each one's latest evaluated outcome. */
+async function projectHistory(userId: string) {
   const rows = await db
     .select({
       id: mission.id,
-      title: mission.title,
       difficulty: mission.difficulty,
-      status: mission.status,
       outcome: evaluation.outcome,
-      evaluatedAt: evaluation.createdAt,
     })
     .from(mission)
-    .innerJoin(missionSkill, and(eq(missionSkill.missionId, mission.id), eq(missionSkill.skillId, skillId)))
     .leftJoin(missionSubmission, eq(missionSubmission.missionId, mission.id))
     .leftJoin(evaluation, eq(evaluation.submissionId, missionSubmission.id))
-    .where(eq(mission.userId, userId))
+    .where(and(eq(mission.userId, userId), eq(mission.cadence, "weekly")))
     .orderBy(desc(mission.createdAt), desc(evaluation.createdAt))
     .limit(20);
 
-  const byMission = new Map<
-    string,
-    { title: string; difficulty: number | null; outcome: Outcome | null; expired: boolean }
-  >();
+  const byProject = new Map<string, { difficulty: number | null; outcome: Outcome | null }>();
   for (const row of rows) {
-    if (!byMission.has(row.id)) {
-      byMission.set(row.id, {
-        title: row.title,
-        difficulty: row.difficulty,
-        outcome: row.outcome,
-        expired: row.status === "expired",
-      });
-    }
+    if (!byProject.has(row.id)) byProject.set(row.id, { difficulty: row.difficulty, outcome: row.outcome });
   }
-  return [...byMission.values()].slice(0, 5);
+  return [...byProject.values()].slice(0, 5);
 }
 
 export class MissionNotFoundError extends Error {
@@ -290,20 +222,17 @@ export class MissionNotFoundError extends Error {
   }
 }
 
-/** Starting: the learner has opened the mission and is working on it. */
+/** Starting: the learner has opened the project and is working on it. */
 export async function startMission(userId: string, missionId: string): Promise<void> {
   await moveMission(userId, missionId, ["assigned"], "in_progress");
 }
 
-/**
- * Skipping frees the slot for a different mission. It shows in the week as skipped but isn't
- * evidence either way: a skipped mission says nothing about what the learner can do.
- */
+/** Skipping frees the slot for a different project. It shows as skipped, nothing more. */
 export async function skipMission(userId: string, missionId: string): Promise<void> {
   await moveMission(userId, missionId, ["assigned", "in_progress"], "skipped");
 }
 
-/** Moves a mission the learner owns between states; doing nothing if it's already moved on. */
+/** Moves a project the learner owns between states; doing nothing if it's already moved on. */
 async function moveMission(
   userId: string,
   missionId: string,

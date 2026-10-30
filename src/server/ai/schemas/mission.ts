@@ -13,7 +13,7 @@ export const missionTypes = [
   "challenge",
 ] as const;
 
-/** Structured output of the Mission Generator (PRD §13, §14). Strict-mode safe: no optionals. */
+/** Structured output of the Project Writer (the mission generator). Strict-mode safe: no optionals. */
 export const generatedMissionSchema = z.object({
   type: z.enum(missionTypes),
   title: z.string().describe("What they'll make or do, in a few words"),
@@ -26,9 +26,14 @@ export const generatedMissionSchema = z.object({
   technology: z
     .string()
     .describe("The main technology it's built with, e.g. 'Next.js and Postgres' or 'Redis'"),
-  reason: z.string().describe("Why this mission, now, for this learner"),
-  estimatedMinutes: z.number().int().min(5),
-  skills: z.array(z.string()).min(1).describe("Skill slugs practised; the first is the path item's skill"),
+  reason: z.string().describe("Why this project, now, and why this size"),
+  durationWeeks: z
+    .number()
+    .int()
+    .min(1)
+    .max(4)
+    .describe("Weeks it honestly needs: 1 for most projects, 2 to 4 only when the build genuinely needs it"),
+  estimatedMinutes: z.number().int().min(5).describe("Total effort in minutes"),
   requiredKnowledge: z.array(z.string()).describe("What they need to know first, as short phrases"),
   instructions: z.string().describe("Numbered steps, plain text, one per line"),
   deliverable: z.string().describe("Exactly what to hand in: a link, a repo, or a written explanation"),
@@ -61,7 +66,7 @@ export const generatedMissionSchema = z.object({
       }),
     )
     .max(3)
-    .describe("Only what this mission needs. Start here, not a reading list."),
+    .describe("Only what this project needs. Start here, not a reading list."),
 });
 
 export type GeneratedMission = z.infer<typeof generatedMissionSchema>;

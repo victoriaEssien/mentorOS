@@ -2,13 +2,11 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, getToolName, isToolUIPart, type UIMessage } from "ai";
-import { ArrowUp, ClipboardList, Flag, Route as RouteIcon, Square } from "lucide-react";
-import Link from "next/link";
+import { ArrowUp, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Pip, PipSays } from "@/components/brand/pip";
 import { FormAlert } from "@/components/form/form-alert";
-import { NAV_FORWARD } from "@/components/shell/page-transition";
 import { Markdown } from "@/components/system/markdown";
 import { Button } from "@/components/ui/button";
 import { routeErrorMessage } from "@/lib/route-error";
@@ -18,8 +16,7 @@ type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
 /**
  * The mentor thread. Only the newest message is sent; the server holds the thread, the learner's
- * record and the tools. Tool results render as their own cards: an explanation, a check to take,
- * a replanned path, a mission.
+ * record and the tools. Tool results render as their own cards, like an explanation.
  */
 export function MentorChat({
   threadId,
@@ -66,8 +63,8 @@ export function MentorChat({
       {messages.length === 0 ? (
         <div className="flex flex-col gap-5">
           <PipSays>
-            I&apos;m Pip. I know your skills, your path, your missions and the mistakes you&apos;ve made. Ask
-            me why something works, to test you, or to change what you&apos;re working on.
+            I&apos;m Pip. I know your theme, your project and the concepts you&apos;re shaky on. Ask me why
+            something works, paste code you don&apos;t follow, or think a design through with me.
           </PipSays>
           <div className="flex flex-col gap-2">
             {suggestions.map((suggestion) => (
@@ -245,134 +242,34 @@ function Step({ state, label, because }: { state: StepState; label: string; beca
 function ToolStep({ part }: { part: ToolPart }) {
   const name = getToolName(part);
   const input = (part.input ?? {}) as Record<string, unknown>;
-  const output = (part.state === "output-available" ? part.output : {}) as Record<string, unknown>;
   const state: StepState =
     part.state === "output-error" ? "failed" : part.state === "output-available" ? "done" : "running";
   const because =
     typeof input.why === "string" && input.why.trim() ? input.why.trim().replace(/\.$/, "") : undefined;
 
-  return <Step state={state} label={describe(name, state, output)} because={because} />;
+  return <Step state={state} label={describe(name, state)} because={because} />;
 }
 
 /** What a tool is doing, did, or couldn't do, in the learner's words. */
-function describe(name: string, state: StepState, output: Record<string, unknown>): string {
-  const skill = typeof output.name === "string" ? output.name : null;
-  switch (name) {
-    case "show_skill":
-      if (state === "running") return "Checking your evidence";
-      if (state === "failed") return "Couldn't check your evidence";
-      return output.found === false
-        ? "Couldn't find that skill"
-        : `Checked your ${skill ?? "skill"} evidence`;
-    case "explain_concept":
-      if (state === "running") return "Writing an explanation";
-      return state === "failed" ? "Couldn't write the explanation" : "Wrote an explanation";
-    case "test_me":
-      if (state === "running") return "Writing a check, about half a minute";
-      return state === "failed" ? "Couldn't write the check" : `Wrote a check on ${skill ?? "that skill"}`;
-    case "change_path":
-      if (state === "running") return "Replanning your path, about half a minute";
-      if (state === "failed") return "Couldn't replan your path";
-      return output.replanned === true ? "Replanned your path" : "Left your path as it is";
-    case "next_mission":
-      if (state === "running") return "Getting your next mission";
-      if (state === "failed") return "Couldn't get your next mission";
-      if (typeof output.missionId !== "string") return "No mission to give yet";
-      return output.created === true ? "Wrote your next mission" : "Found the mission you're on";
-    default:
-      return state === "running" ? "Working" : state === "failed" ? "That step didn't work" : "Done";
+function describe(name: string, state: StepState): string {
+  if (name === "explain_concept") {
+    if (state === "running") return "Writing an explanation";
+    return state === "failed" ? "Couldn't write the explanation" : "Wrote an explanation";
   }
+  // Steps from tools that no longer exist, in older conversations.
+  return state === "running" ? "Working" : state === "failed" ? "That step didn't work" : "Done";
 }
 
-/** What a finished tool hands the learner: an explanation, a check, a path, a mission. */
+/** What a finished tool hands the learner: an explanation, as its own card. */
 function ToolCard({ part }: { part: ToolPart }) {
   if (part.state !== "output-available") return null;
-  const name = getToolName(part);
   const output = part.output as Record<string, unknown>;
-
-  if (name === "explain_concept" && typeof output.explanation === "string") {
+  if (getToolName(part) === "explain_concept" && typeof output.explanation === "string") {
     return (
       <div className="rounded-lg border border-rule bg-window p-4 shadow-window">
         <Markdown text={output.explanation} />
       </div>
     );
   }
-
-  if (name === "test_me" && typeof output.assessmentId === "string") {
-    return (
-      <Card
-        icon={<ClipboardList aria-hidden />}
-        title="Your check is ready"
-        body="A few questions. Every answer is evidence."
-      >
-        <Button asChild size="sm">
-          <Link transitionTypes={NAV_FORWARD} href={`/assessments/${output.assessmentId}`}>
-            Start the check
-          </Link>
-        </Button>
-      </Card>
-    );
-  }
-
-  if (name === "change_path" && output.replanned === true) {
-    return (
-      <Card
-        icon={<RouteIcon aria-hidden />}
-        title="Path updated"
-        body={
-          typeof output.currentFocus === "string"
-            ? `Now: ${output.currentFocus}`
-            : "Your path has a new plan."
-        }
-      >
-        <Button asChild size="sm" variant="secondary">
-          <Link href="/path">See your path</Link>
-        </Button>
-      </Card>
-    );
-  }
-
-  if (name === "next_mission" && typeof output.missionId === "string") {
-    return (
-      <Card
-        icon={<Flag aria-hidden />}
-        title={typeof output.title === "string" ? output.title : "Your mission"}
-        body="Today's mission."
-      >
-        <Button asChild size="sm">
-          <Link transitionTypes={NAV_FORWARD} href={`/missions/${output.missionId}`}>
-            Open the mission
-          </Link>
-        </Button>
-      </Card>
-    );
-  }
-
-  // show_skill only informs the reply: the step line and the mentor's words carry it.
   return null;
-}
-
-function Card({
-  icon,
-  title,
-  body,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3.5 rounded-lg border border-rule bg-window p-4 shadow-window">
-      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-signal text-signal-foreground [&_svg]:size-5">
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-headline">{title}</p>
-        <p className="mt-0.5 text-footnote text-muted-foreground">{body}</p>
-        <div className="mt-3">{children}</div>
-      </div>
-    </div>
-  );
 }

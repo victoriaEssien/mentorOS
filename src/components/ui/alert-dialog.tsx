@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * System alert: how the mentor interrupts ("not yet", a surprise check, a profile update).
+ * System alert: how the mentor interrupts ("not yet", a confirmation before something drastic).
  * Icon, one plain sentence of title, a short message, and at most two buttons.
  */
 

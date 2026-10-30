@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { durationLabel, MISSION_STATUS_LABEL, missionTypeLabel, timeLeftLabel } from "@/lib/mission-labels";
 import type { MissionsOverview } from "@/server/queries/missions";
 
-export type MissionSummary = NonNullable<MissionsOverview["daily"]>;
+export type MissionSummary = NonNullable<MissionsOverview["weekly"]>;
 
-/** A mission in play, as one tappable window: what kind, how long, how hard, and what for. */
+/** A project in play, as one tappable window: what stack, how long, how hard, and what for. */
 export function MissionCard({ mission }: { mission: MissionSummary }) {
   const duration = durationLabel(mission.estimatedMinutes);
   // Handed-in work is waiting on the evaluation, not on the clock.
@@ -16,12 +16,12 @@ export function MissionCard({ mission }: { mission: MissionSummary }) {
   return (
     <Link
       transitionTypes={NAV_FORWARD}
-      href={`/missions/${mission.id}`}
+      href={`/projects/${mission.id}`}
       className="block pressable rounded-lg border border-rule bg-window p-5 shadow-window outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <span className="flex items-center justify-between gap-3">
         <span className="text-footnote text-muted-foreground">
-          {missionTypeLabel(mission.type)}
+          {mission.stack ?? missionTypeLabel(mission.type)}
           {duration ? `, ${duration.toLowerCase()}` : ""}
           {left ? `, ${left}` : ""}
         </span>

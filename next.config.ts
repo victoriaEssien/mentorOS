@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   // Partial prerendering plus Activity: instant static shells, and tabs keep their state
   // (scroll, drafts) when you switch away and back, like a native app.
   cacheComponents: true,
+  // Links in emails sent before the weekly themes still land somewhere sensible.
+  redirects() {
+    return [
+      { source: "/missions/:path*", destination: "/projects/:path*", permanent: true },
+      { source: "/path/:path*", destination: "/today", permanent: true },
+      { source: "/assessments/:path*", destination: "/today", permanent: true },
+      { source: "/profile/skills/:path*", destination: "/profile", permanent: true },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

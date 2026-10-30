@@ -8,7 +8,6 @@ import { PipSays } from "@/components/brand/pip";
 import { ChoiceGroup } from "@/components/form/choice-group";
 import { FormAlert } from "@/components/form/form-alert";
 import { CellMeter } from "@/components/system/cell-meter";
-import { WorkingScreen } from "@/components/system/working-screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,9 +24,9 @@ import { cn } from "@/lib/utils";
 
 import { completeOnboardingAction, type OnboardingAnswers } from "./actions";
 
-type Track = { id: string; name: string; description: string | null };
+type Theme = { title: string; weeks: number; summary: string };
 
-const STEPS = ["tracks", "goals", "background", "preferences", "review"] as const;
+const STEPS = ["how", "goals", "background", "preferences", "review"] as const;
 
 const emptyAnswers: OnboardingAnswers = {
   goals: [],
@@ -43,10 +42,11 @@ const emptyAnswers: OnboardingAnswers = {
 };
 
 export function OnboardingWizard({
-  tracks,
+  themes,
   initial,
 }: {
-  tracks: Track[];
+  /** The first few themes, so they see where the weeks start. */
+  themes: Theme[];
   initial: Partial<OnboardingAnswers>;
 }) {
   const [step, setStep] = useState(0);
@@ -67,10 +67,6 @@ export function OnboardingWizard({
   function finish() {
     startTransition(() => submit(answers));
   }
-
-  const trackNames = tracks.map((track) => track.name);
-
-  if (pending) return <BuildingScreen trackNames={trackNames} />;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -102,19 +98,19 @@ export function OnboardingWizard({
             direction === "forward" ? "slide-in-from-right-6" : "slide-in-from-left-6",
           )}
         >
-          {current === "tracks" && <TracksStep tracks={tracks} />}
+          {current === "how" && <HowStep themes={themes} />}
           {current === "goals" && <GoalsStep answers={answers} update={update} />}
           {current === "background" && <BackgroundStep answers={answers} update={update} />}
           {current === "preferences" && <PreferencesStep answers={answers} update={update} />}
-          {current === "review" && <ReviewStep answers={answers} trackNames={trackNames} />}
+          {current === "review" && <ReviewStep answers={answers} />}
         </div>
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-window pb-safe">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 py-3">
           {last && state.error ? <FormAlert>{state.error}</FormAlert> : null}
-          <Button size="lg" className="w-full" onClick={last ? finish : () => go(1)}>
-            {last ? "Start my assessment" : "Continue"}
+          <Button size="lg" className="w-full" disabled={pending} onClick={last ? finish : () => go(1)}>
+            {last ? (pending ? "Starting" : "Start my first week") : "Continue"}
           </Button>
         </div>
       </footer>
@@ -136,28 +132,55 @@ function StepTitle({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-/** What everyone works on. Nothing to pick: the tracks are set, aimed at the interview bar. */
-function TracksStep({ tracks }: { tracks: Track[] }) {
+/** How it works: a theme a week, a concept a day to research and explain, and a project per theme. */
+function HowStep({ themes }: { themes: Theme[] }) {
   return (
     <>
       <PipSays className="mb-6">
-        Hi, I&apos;m Pip, your mentor. Tell me a little about you. Then a diagnostic shows me what you can
-        really do, and we start from there.
+        Hi, I&apos;m Pip. I pick what you work on. You research it, explain it and build it your own way, and
+        I tell you straight how it went.
       </PipSays>
       <StepTitle
-        title="What we'll work on"
-        detail="Every mission, check and question comes from these three, pitched at the bar for engineering interviews at the top companies."
+        title="How it works"
+        detail="Every week has a theme, chosen for you, each building on the last."
       />
-      <ul className="divide-y divide-rule overflow-hidden rounded-lg border border-rule bg-window">
-        {tracks.map((track) => (
-          <li key={track.id} className="px-4 py-3.5">
-            <p className="text-headline">{track.name}</p>
-            {track.description ? (
-              <p className="mt-0.5 text-footnote text-muted-foreground">{track.description}</p>
-            ) : null}
+      <ul className="divide-y divide-rule rounded-lg border border-rule bg-window">
+        {[
+          {
+            title: "A concept a day",
+            detail:
+              "One new idea from the week's theme. Research it however you like, then explain it back in writing.",
+          },
+          {
+            title: "Reviews that come back",
+            detail: "Concepts you're shaky on come back sooner, asked a new way, until they stick.",
+          },
+          {
+            title: "A project per theme",
+            detail:
+              "Something real to build in a week or two. Hand in the repo; it's reviewed against the brief.",
+          },
+          {
+            title: "Something to post",
+            detail:
+              "Each project ends with a draft for X and LinkedIn about what you built and what was hard.",
+          },
+        ].map((part) => (
+          <li key={part.title} className="px-4 py-3.5">
+            <p className="text-headline">{part.title}</p>
+            <p className="mt-0.5 text-footnote text-muted-foreground">{part.detail}</p>
           </li>
         ))}
       </ul>
+      <p className="mt-6 text-caption font-semibold text-muted-foreground">Where the weeks start</p>
+      <ol className="mt-2 flex flex-col gap-1.5 text-callout">
+        {themes.map((theme) => (
+          <li key={theme.title}>
+            {theme.title}
+            <span className="text-muted-foreground">, {theme.weeks === 2 ? "two weeks" : "one week"}</span>
+          </li>
+        ))}
+      </ol>
     </>
   );
 }
@@ -218,7 +241,7 @@ function BackgroundStep({ answers, update }: StepProps) {
     <>
       <StepTitle
         title="Where are you starting from?"
-        detail="This helps the mentor talk to you at the right level. It doesn't set your skill levels; the assessment does."
+        detail="This helps the mentor talk to you at the right level, and pitches your projects."
       />
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
@@ -363,7 +386,7 @@ function PreferencesStep({ answers, update }: StepProps) {
   );
 }
 
-function ReviewStep({ answers, trackNames }: { answers: OnboardingAnswers; trackNames: string[] }) {
+function ReviewStep({ answers }: { answers: OnboardingAnswers }) {
   const goals = [...answers.goals, ...(answers.customGoal ? [answers.customGoal] : [])];
   const tone = toneOptions.find((option) => option.value === answers.mentorTone)?.label;
   const hours = weeklyHourOptions.find((option) => option.value === answers.weeklyLearningHours)?.label;
@@ -371,12 +394,12 @@ function ReviewStep({ answers, trackNames }: { answers: OnboardingAnswers; track
   return (
     <>
       <StepTitle
-        title="Next, find out what you actually know."
-        detail="A short assessment of real questions: code to read, problems to reason through, a few things to explain. About 20 minutes. Answer honestly; guesses only send you down the wrong path."
+        title="Your first week starts today."
+        detail="Your first concept is on Today, and the week's project is written for you when you get there. Projects lean on the technologies you listed."
       />
       <dl className="divide-y divide-rule rounded-lg border border-rule bg-window">
-        <ReviewRow term="Tracks" detail={trackNames.join(", ")} />
         <ReviewRow term="Goals" detail={goals.length > 0 ? goals.join(", ") : "None picked"} />
+        <ReviewRow term="Stack" detail={answers.technologiesUsed.join(", ") || "None listed"} />
         <ReviewRow term="Time" detail={hours ?? "Not set"} />
         <ReviewRow term="Mentor" detail={tone ?? "Direct and fair"} />
       </dl>
@@ -390,15 +413,5 @@ function ReviewRow({ term, detail }: { term: string; detail: string }) {
       <dt className="text-footnote font-semibold text-muted-foreground">{term}</dt>
       <dd className="text-callout">{detail}</dd>
     </div>
-  );
-}
-
-/** Shown while the diagnostic is being written. Honest about what is happening and how long it takes. */
-function BuildingScreen({ trackNames }: { trackNames: string[] }) {
-  return (
-    <WorkingScreen title="Building your assessment">
-      Writing questions for {trackNames.join(" and ") || "your tracks"}, from recall up to problems you
-      haven&apos;t seen before. This takes about a minute; keep this screen open.
-    </WorkingScreen>
   );
 }

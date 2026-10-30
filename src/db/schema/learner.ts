@@ -1,8 +1,7 @@
-import { integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { createdAt, mentorTone, updatedAt } from "./_shared";
 import { user } from "./auth";
-import { track } from "./skills";
 
 /**
  * Onboarding context (PRD §8). This supplements assessment evidence; it never sets skill levels.
@@ -25,18 +24,3 @@ export const learnerProfile = pgTable("learner_profile", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
-
-/** Tracks a learner has selected. Multiple allowed (PRD §4). */
-export const userTrack = pgTable(
-  "user_track",
-  {
-    userId: text()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    trackId: uuid()
-      .notNull()
-      .references(() => track.id, { onDelete: "cascade" }),
-    createdAt: createdAt(),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.trackId] })],
-);

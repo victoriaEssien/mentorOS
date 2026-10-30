@@ -2,7 +2,7 @@
 
 import { ScreenError } from "@/components/system/screen-error";
 
-/** Onboarding or an assessment that failed to load. Answers save as they go, so retrying is safe. */
+/** Onboarding that failed to load. Answers save as they go, so retrying is safe. */
 export default function FocusError({
   error,
   retry,

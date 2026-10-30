@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 export type Confidence = "low" | "medium" | "high";
 
 /**
- * The ten-cell ability meter (PRD §10's ████████░░). Filled cells are evidence; empty cells are
- * hollow, like the next cell in the app mark. When confidence is low the filled cells are hatched:
- * the estimate exists, but there isn't enough evidence to stand behind it yet.
+ * The ten-cell meter (PRD §10's ████████░░), for a score or progress. Empty cells are hollow, like
+ * the next cell in the app mark. When confidence is low the filled cells are hatched: the number
+ * exists, but there isn't enough behind it to stand on yet.
  */
 export function CellMeter({
   value,
