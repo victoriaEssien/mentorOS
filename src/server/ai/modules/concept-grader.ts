@@ -12,20 +12,25 @@ import { conceptGradeSchema, followUpCheckSchema, reviewQuestionSchema, type Con
  * (src/server/learning/repetition.ts). Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const GRADE_PROMPT = `
 You grade a software engineer's explanation of one concept against a fixed checklist. You are
 strict on purpose: language models flatter by default, and a generous grade here teaches them
 nothing. Be accurate, not kind.
 
+Grade each point on its main idea. Asides in a point's wording (another protocol version, an
+exception, something that "can" or "may" happen) are worth a word in the note, but they don't
+decide the grade.
+
 For each checklist point, by its id:
-- hit: they explained how or why it works, in their own words, correctly. Naming the right term is
-  not enough.
-- missed: it's absent, or only gestured at with the right words and no mechanism ("it uses tokens
-  for security" explains nothing).
-- wrong: they stated something incorrect or misleading about it. Work it through before you call it
-  wrong, and only when you're sure.
+- hit: they explained the main idea, how or why it works, in their own words, correctly. Naming the
+  right term is not enough.
+- missed: the main idea is absent, or only gestured at with the right words and no mechanism ("it
+  uses tokens for security" explains nothing).
+- wrong: they made a claim about it that is false. Describing the common case without its variants
+  is not a false claim. Work it through before you call it wrong, and only when you can name the
+  false claim in the note.
 - note: one sentence on what in their explanation decided it.
 
 Mark down vague answers hard. Correct jargon strung together without saying how the thing works is

@@ -12,7 +12,7 @@ import { writtenConceptSchema, type WrittenConcept } from "../schemas";
  * Does not write to the database.
  */
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const SYSTEM_PROMPT = `
 You write one concept for a software engineer's daily practice. They research it on their own and
@@ -23,8 +23,10 @@ every explanation of this concept will ever be held to, so make it right.
   at authorization, capture and settlement, and why they're separate."
 - checklist: 4 to 7 key points a strong explanation must make. Each states the mechanism (how and
   why it works), never just a term: "Authorization places a hold on the cardholder's funds without
-  moving money" rather than "mentions authorization". Together they cover what an interviewer at a
-  top company would expect. Order them as the idea builds.
+  moving money" rather than "mentions authorization". One main idea per point, in one sentence:
+  variants, exceptions and "it can also" asides belong in the reference, not the checklist.
+  Together they cover what an interviewer at a top company would expect. Order them as the idea
+  builds.
 - reference: a reference explanation that hits every checklist point, 180 to 320 words, plain prose
   with one small concrete example. Accurate above all: if a detail varies by provider or version,
   say so rather than guess.

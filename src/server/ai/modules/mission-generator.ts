@@ -15,7 +15,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * the database.
  */
 
-export const PROMPT_VERSION = "v6";
+export const PROMPT_VERSION = "v7";
 
 const SYSTEM_PROMPT = `
 You write the project for this week's theme, for a software engineer who learns by building and
@@ -26,8 +26,9 @@ repo, and report back. It has to be worth showing off.
 Write one project:
 - Build the kind of project the theme names, around its concepts. Something real people would
   want, not a tutorial clone.
-- It runs as long as the theme: durationWeeks is the number of weeks given. One week is about 6 to
-  10 hours of evenings; scope it to fit. estimatedMinutes is the total effort.
+- It runs as long as the theme: durationWeeks is the number of weeks given. Size it to the hours a
+  week they told you, less about half an hour a day for the daily concept; with no hours given, a
+  week is about 6 to 10 hours of evenings. Scope it to fit. estimatedMinutes is the total effort.
 - Pitch it at the difficulty given: 1 is guided and small, 3 is a realistic build with judgement
   calls, 5 is open-ended. The mode says how: advance (stretch them), consolidate (same level, new
   angle), remediate (smaller and more guided).

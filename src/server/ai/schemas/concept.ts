@@ -46,7 +46,7 @@ export const conceptGradeSchema = z.object({
         id: z.string().describe("The checklist point's id"),
         status: z
           .enum(["hit", "missed", "wrong"])
-          .describe("hit: explained how it works; missed: absent or only named; wrong: stated incorrectly"),
+          .describe("hit: explained how its main idea works; missed: absent or only named; wrong: a false claim"),
         note: z.string().describe("One sentence on what in their explanation decided this"),
       }),
     )
