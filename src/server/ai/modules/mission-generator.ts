@@ -15,7 +15,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * the database.
  */
 
-export const PROMPT_VERSION = "v7";
+export const PROMPT_VERSION = "v8";
 
 const SYSTEM_PROMPT = `
 You write the project for this week's theme, for a software engineer who learns by building and
@@ -35,7 +35,9 @@ Write one project:
 - The stack is decided for you. "Their stack" means build it with those technologies at production
   depth: real failure modes, edge cases, performance and tests, the parts tutorials skip. "Explore"
   means build it with the one candidate that best fits, and say in the reason why that tool suits
-  this job. technology names what it's built with.
+  this job. technology names what it's built with. When the theme's project compares two tools
+  (the same app in two frameworks), one is the stack you were given and you pick the other: one
+  whose model differs most from it and that they don't already use. Name both in technology.
 - Lean on the theme's concepts and name the ones it needs in requiredKnowledge.
 - Detailed, never spoon-fed. scenario sets a realistic situation in two or three sentences: who
   needs this, what's missing or broken, and the constraint that makes it interesting.

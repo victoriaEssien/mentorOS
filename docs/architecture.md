@@ -87,7 +87,7 @@ Tiers map to `AI_MODEL_FAST`, `AI_MODEL_SMART` and `AI_MODEL_DEEP`. Nothing uses
 
 ## Projects
 
-- One project per theme run, written the first time the theme's project is asked for, due when the theme ends. Its stack comes from `planStack` (mostly the learner's own technologies; every third project explores something new) and its difficulty from `planDifficulty`.
+- One project per theme run, written the first time the theme's project is asked for, due when the theme ends. Its stack comes from `planStack` and its difficulty from `planDifficulty`. Two in three projects use the learner's own technologies. Every third explores something they don't already use, from the theme's side of the stack: frameworks such as Vue, Svelte, Angular, Solid, Astro or htmx for frontend themes; services and languages such as Go, Redis, Kafka or Rust for backend ones; both, alternating, for full-stack themes.
 - Hand-ins are reviewed per criterion against the brief. The verdict is computed in code from the scores: strong ≥ 0.85, pass ≥ 0.7, partial ≥ 0.3, otherwise fail (`GRADING_VERSION` g4).
 - Feedback gets a second look before anyone sees it. The Evaluation Checker tests every factual claim in it against the work and the subject, and fixes the ones that don't hold. The fixes are applied in code and stored with the evaluation (`secondLook`), before and after. If the check fails, the first look stands.
 - Once a hand-in is reviewed, a post for X and LinkedIn is drafted in `after()`, from what was built, what was hard and what went wrong. The learner can redraft it.

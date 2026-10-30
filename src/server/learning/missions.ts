@@ -124,6 +124,7 @@ export async function assignProject(
     const stack = planStack({
       given: Number(given?.projects ?? 0),
       technologiesUsed: context.background.technologiesUsed,
+      side: theme.side,
     });
     const difficulty = planDifficulty({
       ability: 0.5,
