@@ -7,6 +7,7 @@ import { answerFollowUp, ensureSession, explainAttempt, prepareAttempt } from ".
 import { getMentorThread, replyInThread } from "./mentor-chat";
 import { assignProject, expireOverdueMissions } from "./missions";
 import { updateLearnerSettings, type LearnerSettings } from "./settings";
+import { resetLearning } from "./start-over";
 import { ensureThemeRun } from "./themes";
 import { submitWork, type WorkInput } from "./submissions";
 import { draftPostForProject } from "./project-post";
@@ -102,6 +103,14 @@ export async function expireMissions(userId: string): Promise<void> {
 /** Changes what the learner told us at onboarding: goals, weekly time, learning style, tone. */
 export async function changeSettings(userId: string, changes: Partial<LearnerSettings>): Promise<void> {
   await updateLearnerSettings(userId, changes);
+}
+
+/**
+ * Starts them over from the first theme: clears everything they've learned and built, and sends
+ * them back through onboarding. Their account stays. No model call.
+ */
+export async function startOver(userId: string): Promise<void> {
+  await resetLearning(userId);
 }
 
 /** Hands in a project and reviews it against its brief: scores per criterion and what to do next. */

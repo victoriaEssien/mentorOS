@@ -13,6 +13,7 @@ import {
   LearningStyleSetting,
   NameSetting,
   PasswordSetting,
+  StartOverSetting,
   ToneSetting,
   WeeklyTimeSetting,
 } from "./settings-sheets";
@@ -64,6 +65,16 @@ export default async function SettingsPage() {
           {user.emailVerified
             ? "Emails about your account, like a password reset, always come."
             : "These start once your email is confirmed. Emails about your account always come."}
+        </p>
+      </ScreenSection>
+
+      <ScreenSection>
+        <div className={GROUP}>
+          <StartOverSetting />
+        </div>
+        <p className="mt-2.5 text-footnote text-muted-foreground">
+          Clears everything you&apos;ve learned and built here and starts you again from the first theme. Your
+          account stays.
         </p>
       </ScreenSection>
 

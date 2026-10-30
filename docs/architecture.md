@@ -88,9 +88,14 @@ Tiers map to `AI_MODEL_FAST`, `AI_MODEL_SMART` and `AI_MODEL_DEEP`. Nothing uses
 ## Projects
 
 - One project per theme run, written the first time the theme's project is asked for, due when the theme ends. Its stack comes from `planStack` and its difficulty from `planDifficulty`. Two in three projects use the learner's own technologies. Every third explores something they don't already use, from the theme's side of the stack: frameworks such as Vue, Svelte, Angular, Solid, Astro or htmx for frontend themes; services and languages such as Go, Redis, Kafka or Rust for backend ones; both, alternating, for full-stack themes.
+- Projects vary in form: web app, backend service, CLI tool, library, browser extension or mobile app. Each theme lists the forms that suit it, best fit first, and `planForm` (`project-form.ts`) takes the first one the learner hasn't built in their last two projects. One pass of the curriculum builds all six. The form is stored on the project (`mission.form`), and the Project Writer is told what done means for it.
 - Hand-ins are reviewed per criterion against the brief. The verdict is computed in code from the scores: strong ≥ 0.85, pass ≥ 0.7, partial ≥ 0.3, otherwise fail (`GRADING_VERSION` g4).
 - Feedback gets a second look before anyone sees it. The Evaluation Checker tests every factual claim in it against the work and the subject, and fixes the ones that don't hold. The fixes are applied in code and stored with the evaluation (`secondLook`), before and after. If the check fails, the first look stands.
 - Once a hand-in is reviewed, a post for X and LinkedIn is drafted in `after()`, from what was built, what was hard and what went wrong. The learner can redraft it.
+
+## Starting over
+
+Settings has a Start over row. After a confirmation, `resetLearning` (`start-over.ts`) deletes the learner's concept attempts, review schedule, theme runs, projects (with their hand-ins, reviews and posts) and mentor threads in one batch, and clears `onboarding_completed_at`, so they go back through onboarding with their answers filled in. The account, sign-in, email settings and the shared `concept` rows stay.
 
 ## The mentor
 

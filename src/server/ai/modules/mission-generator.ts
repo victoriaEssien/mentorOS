@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ProjectForm } from "@/lib/themes";
+
 import { renderLearnerContext, type LearnerContext } from "../context";
 import { generateStructured, type GenerationMeta } from "../generate";
 import type { Effort } from "../provider";
@@ -15,7 +17,7 @@ import { sanitizeMission } from "./mission-sanitize";
  * the database.
  */
 
-export const PROMPT_VERSION = "v8";
+export const PROMPT_VERSION = "v9";
 
 const SYSTEM_PROMPT = `
 You write the project for this week's theme, for a software engineer who learns by building and
@@ -26,6 +28,18 @@ repo, and report back. It has to be worth showing off.
 Write one project:
 - Build the kind of project the theme names, around its concepts. Something real people would
   want, not a tutorial clone.
+- The form is decided for you. Shape the theme's project into it, keeping its concepts at the centre
+  (for a CLI the same concerns show up as commands, flags and output; for a library, as its public
+  API). What done means for each form:
+  - web app: runs locally with one command, deployed if the stack makes that easy.
+  - backend service: an HTTP or gRPC service with a README showing how to call it.
+  - CLI tool: installable (npx, pipx, go install or a binary), --help, clear errors, sensible exit
+    codes, and it works in a pipe.
+  - library: a small typed public API, docs with examples, tests, and ready to publish to npm or
+    PyPI.
+  - browser extension: Chrome Manifest V3 with the fewest permissions it needs, loadable unpacked.
+  - mobile app: React Native with Expo unless their stack names another mobile framework, running
+    in Expo Go or a simulator.
 - It runs as long as the theme: durationWeeks is the number of weeks given. Size it to the hours a
   week they told you, less about half an hour a day for the daily concept; with no hours given, a
   week is about 6 to 10 hours of evenings. Scope it to fit. estimatedMinutes is the total effort.
@@ -63,6 +77,8 @@ export type GenerateMissionInput = {
   difficulty: { level: number; mode: "advance" | "consolidate" | "remediate"; reason: string };
   /** Their own stack to go deeper in, or new tools to explore (decided in mission-stack.ts). */
   stack: { mode: "home"; technologies: string[] } | { mode: "explore"; candidates: string[] };
+  /** What it's built as (decided in project-form.ts). */
+  form: ProjectForm;
   effort?: Effort;
   abortSignal?: AbortSignal;
 };
@@ -80,6 +96,7 @@ export async function generateMission(
     `The project should be: ${input.theme.project}.`,
     `Its concepts: ${input.theme.concepts.join("; ")}.`,
     `Weeks: ${input.theme.weeks}.`,
+    `Form: build it as a ${input.form}.`,
     `Difficulty: ${difficulty.level} of 5, mode ${difficulty.mode}. ${difficulty.reason}`,
     input.stack.mode === "home"
       ? `Stack: their stack, go deeper in it. Their technologies: ${input.stack.technologies.join(", ")}.`

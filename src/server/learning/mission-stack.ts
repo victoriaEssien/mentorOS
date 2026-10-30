@@ -4,7 +4,7 @@
  * about. Pure, so the Project Writer is told the stack rather than choosing it.
  */
 
-import type { Theme } from "@/lib/themes";
+import type { ProjectForm, Theme } from "@/lib/themes";
 
 /** Used when onboarding didn't capture any technologies. */
 export const DEFAULT_HOME_STACK = ["Next.js", "TypeScript", "Python", "PostgreSQL on Neon", "Auth.js"];
@@ -76,7 +76,8 @@ export function planStack({
   return { mode: "explore", candidates: [0, 1, 2].map((offset) => pool[(start + offset) % pool.length]!) };
 }
 
-/** How the project page names its stack. */
-export function stackLabel(plan: StackPlan, technology: string): string {
-  return plan.mode === "explore" ? `Exploring: ${technology}` : `Your stack: ${technology}`;
+/** How the project page names what it's built as and in: "CLI tool, your stack: Node.js". */
+export function stackLabel(plan: StackPlan, technology: string, form: ProjectForm): string {
+  const built = form.charAt(0).toUpperCase() + form.slice(1);
+  return `${built}, ${plan.mode === "explore" ? "exploring" : "your stack"}: ${technology}`;
 }

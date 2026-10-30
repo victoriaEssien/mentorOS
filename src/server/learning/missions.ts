@@ -3,12 +3,14 @@ import { and, count, desc, eq, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { evaluation, mission, missionSubmission, themeRun } from "@/db/schema";
+import type { ProjectForm } from "@/lib/themes";
 import { buildLearnerContext } from "@/server/ai/context";
 import { generateMission, PROMPT_VERSION } from "@/server/ai/modules/mission-generator";
 import { release, take, type Limit } from "@/server/throttle";
 
 import { planDifficulty, type Outcome } from "./difficulty";
 import { planStack, stackLabel } from "./mission-stack";
+import { planForm } from "./project-form";
 import { ensureThemeRun } from "./themes";
 
 /**
@@ -126,6 +128,7 @@ export async function assignProject(
       technologiesUsed: context.background.technologiesUsed,
       side: theme.side,
     });
+    const form = planForm({ forms: theme.forms, recent: history.map((h) => h.form) });
     const difficulty = planDifficulty({
       ability: 0.5,
       recentOutcomes: history.flatMap((h) => (h.outcome ? [h.outcome] : [])),
@@ -142,6 +145,7 @@ export async function assignProject(
         weeks: theme.weeks,
       },
       stack,
+      form,
       difficulty: { level: difficulty.difficulty, mode: difficulty.mode, reason: difficulty.reason },
     });
 
@@ -162,7 +166,8 @@ export async function assignProject(
         deliverable: generated.deliverable,
         acceptanceCriteria: generated.acceptanceCriteria,
         stretchGoal: generated.stretchGoal,
-        stack: stackLabel(stack, generated.technology),
+        form,
+        stack: stackLabel(stack, generated.technology, form),
         evaluationCriteria: generated.evaluationCriteria,
         resources: generated.resources.map(({ url, note, ...resource }) => ({
           ...resource,
@@ -200,6 +205,7 @@ async function projectHistory(userId: string) {
     .select({
       id: mission.id,
       difficulty: mission.difficulty,
+      form: mission.form,
       outcome: evaluation.outcome,
     })
     .from(mission)
@@ -209,9 +215,14 @@ async function projectHistory(userId: string) {
     .orderBy(desc(mission.createdAt), desc(evaluation.createdAt))
     .limit(20);
 
-  const byProject = new Map<string, { difficulty: number | null; outcome: Outcome | null }>();
+  const byProject = new Map<
+    string,
+    { difficulty: number | null; form: ProjectForm | null; outcome: Outcome | null }
+  >();
   for (const row of rows) {
-    if (!byProject.has(row.id)) byProject.set(row.id, { difficulty: row.difficulty, outcome: row.outcome });
+    if (!byProject.has(row.id)) {
+      byProject.set(row.id, { difficulty: row.difficulty, form: row.form, outcome: row.outcome });
+    }
   }
   return [...byProject.values()].slice(0, 5);
 }

@@ -70,8 +70,10 @@ describe("planStack", () => {
 });
 
 describe("stackLabel", () => {
-  it("says which kind of project it is", () => {
-    expect(stackLabel({ mode: "home", technologies: mine }, "Next.js")).toBe("Your stack: Next.js");
-    expect(stackLabel({ mode: "explore", candidates: [] }, "Redis")).toBe("Exploring: Redis");
+  it("says what it's built as, and whether the stack is theirs or new", () => {
+    expect(stackLabel({ mode: "home", technologies: mine }, "Next.js", "web app")).toBe(
+      "Web app, your stack: Next.js",
+    );
+    expect(stackLabel({ mode: "explore", candidates: [] }, "Go", "CLI tool")).toBe("CLI tool, exploring: Go");
   });
 });

@@ -10,6 +10,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type { ProjectForm } from "../../lib/themes";
+
 import { createdAt, id, missionCadence, missionStatus, missionType, updatedAt } from "./_shared";
 import { user } from "./auth";
 
@@ -42,7 +44,9 @@ export const mission = pgTable(
     acceptanceCriteria: jsonb().$type<string[]>().default([]).notNull(),
     /** A harder extension for when they finish early. */
     stretchGoal: text(),
-    /** "Your stack: Next.js" or "Exploring: Redis". */
+    /** What it's built as (src/server/learning/project-form.ts); null before forms existed. */
+    form: text().$type<ProjectForm>(),
+    /** "CLI tool, your stack: Node.js" or "Web app, exploring: Svelte". */
     stack: text(),
     evaluationCriteria: jsonb().$type<EvaluationCriterion[]>().default([]).notNull(),
     resources: jsonb().$type<MissionResource[]>().default([]).notNull(),

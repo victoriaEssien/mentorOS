@@ -7,6 +7,9 @@
 
 export type ConceptEntry = { slug: string; title: string; angle: string };
 
+/** What a project is built as. */
+export type ProjectForm = "web app" | "backend service" | "CLI tool" | "library" | "browser extension" | "mobile app";
+
 export type Theme = {
   slug: string;
   title: string;
@@ -15,6 +18,11 @@ export type Theme = {
   summary: string;
   /** What kind of project the theme's brief should be, for the Project Writer. */
   project: string;
+  /**
+   * What the project can be built as, best fit first. A project takes the first one the learner
+   * hasn't built in their last two projects, so the forms vary across the curriculum.
+   */
+  forms: ProjectForm[];
   /** Official docs shown beside reference explanations, for themes where a wrong lesson is costly. */
   docs: { title: string; url: string }[];
   concepts: ConceptEntry[];
@@ -35,6 +43,7 @@ export const THEMES: readonly Theme[] = [
     weeks: 1,
     summary: "How requests travel and how good APIs are shaped.",
     project: "a small REST API with sensible status codes, pagination and idempotent writes",
+    forms: ["backend service", "library", "CLI tool"],
     docs: [],
     concepts: [
       k(
@@ -81,6 +90,7 @@ export const THEMES: readonly Theme[] = [
     weeks: 2,
     summary: "Modelling data well and keeping it correct and fast.",
     project: "a schema-first backend for a real domain with migrations, indexes and concurrency-safe writes",
+    forms: ["backend service", "CLI tool", "library"],
     docs: [],
     concepts: [
       k(
@@ -159,6 +169,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Proving who someone is, keeping them signed in, and deciding what they may do.",
     project:
       "a complete auth system: sign-up, sessions, password reset, OAuth sign-in and server-side authorization",
+    forms: ["web app", "mobile app"],
     docs: [
       OWASP("Authentication_Cheat_Sheet", "Authentication"),
       OWASP("Password_Storage_Cheat_Sheet", "Password storage"),
@@ -245,6 +256,7 @@ export const THEMES: readonly Theme[] = [
     summary: "How UI frameworks turn a change in state into an update on screen, and where state should live.",
     project:
       "the same small interactive app (shared state, a long filtered list, derived values) built twice, in two frameworks with different reactivity models, with the updates measured in each and a short write-up comparing them",
+    forms: ["web app"],
     docs: [],
     concepts: [
       k(
@@ -292,6 +304,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Layouts that hold up, and interfaces everyone can use.",
     project:
       "an accessible component library (dialog, tabs, menu, form fields) with keyboard support and a responsive layout",
+    forms: ["library", "web app"],
     docs: [],
     concepts: [
       k(
@@ -331,6 +344,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Why pages feel slow and how to make them fast.",
     project:
       "a performance overhaul of a slow page, with before and after measurements of the Core Web Vitals",
+    forms: ["web app"],
     docs: [],
     concepts: [
       k(
@@ -374,6 +388,7 @@ export const THEMES: readonly Theme[] = [
     summary: "The attacks that live in the browser and how to stop them.",
     project:
       "hardening a web app: a strict Content Security Policy, safe rendering of user content, CSRF protection and secure token handling",
+    forms: ["web app", "browser extension"],
     docs: [
       OWASP("Cross_Site_Scripting_Prevention_Cheat_Sheet", "XSS prevention"),
       OWASP("Cross-Site_Request_Forgery_Prevention_Cheat_Sheet", "CSRF prevention"),
@@ -421,6 +436,7 @@ export const THEMES: readonly Theme[] = [
     summary: "How money actually moves, and taking it without losing any.",
     project:
       "a Stripe checkout flow in Next.js: payments, webhooks that fulfill orders exactly once, refunds and a subscription",
+    forms: ["web app", "mobile app"],
     docs: [
       { title: "Stripe: Payments", url: "https://docs.stripe.com/payments" },
       { title: "Stripe: Webhooks", url: "https://docs.stripe.com/webhooks" },
@@ -498,6 +514,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Doing work once, and doing slow work outside the request.",
     project:
       "a backend with a Redis cache that invalidates correctly and a job queue with retries and a dead-letter queue",
+    forms: ["backend service", "CLI tool", "library"],
     docs: [],
     concepts: [
       k(
@@ -533,6 +550,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Getting updates to users as they happen.",
     project:
       "a realtime feature such as a collaborative list or chat with presence, optimistic updates and reconnection",
+    forms: ["web app", "mobile app", "browser extension"],
     docs: [],
     concepts: [
       k(
@@ -568,6 +586,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Shipping changes with confidence.",
     project:
       "a test suite and CI pipeline for an existing project: unit, integration with a real database, an end-to-end test, and a preview deploy",
+    forms: ["library", "CLI tool", "web app"],
     docs: [],
     concepts: [
       k(
@@ -603,6 +622,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Building product features on language models that actually work.",
     project:
       "an AI feature with retrieval over your own data, structured output, streaming, and an evaluation set",
+    forms: ["CLI tool", "web app", "browser extension", "mobile app"],
     docs: [],
     concepts: [
       k(
@@ -650,6 +670,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Where Next.js renders, fetches and caches, and why.",
     project:
       "a Next.js app that uses static, dynamic and streamed rendering on purpose, with server actions and correct revalidation",
+    forms: ["web app"],
     docs: [],
     concepts: [
       k(
@@ -685,6 +706,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Accepting, storing and serving files safely.",
     project:
       "an upload feature with presigned direct uploads to object storage, image processing and safe serving",
+    forms: ["web app", "mobile app", "CLI tool"],
     docs: [],
     concepts: [
       k("multipart-uploads", "How file uploads work", "Multipart form data, streaming and size limits."),
@@ -716,6 +738,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Helping people find things quickly.",
     project:
       "search over your own data: Postgres full-text search with ranking and typo tolerance, and an instant search UI",
+    forms: ["web app", "CLI tool"],
     docs: [],
     concepts: [
       k(
@@ -743,6 +766,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Knowing what production is doing and fixing it fast.",
     project:
       "instrumenting an app with structured logs, metrics, traces and error tracking, plus an alert and a runbook",
+    forms: ["backend service", "library"],
     docs: [],
     concepts: [
       k("structured-logging", "Structured logging", "Logs as data, levels, and correlation IDs."),
@@ -766,6 +790,7 @@ export const THEMES: readonly Theme[] = [
     summary: "Designing systems that scale, and talking through the trade-offs.",
     project:
       "a scaled-down real system (a URL shortener or rate limiter) with a written design doc, load test and the trade-offs you made",
+    forms: ["backend service"],
     docs: [],
     concepts: [
       k(
